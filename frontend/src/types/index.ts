@@ -79,8 +79,8 @@ export interface Address {
   street: string;
   city: string;
   country: string;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: string | null;
+  longitude: string | null;
   created_at: string;
 }
 
@@ -144,7 +144,7 @@ export interface Delivery {
   status: DeliveryStatus;
   picked_up_at: string | null;
   delivered_at: string | null;
-  last_position: { latitude: number; longitude: number; recorded_at: string } | null;
+  last_position: { latitude: string; longitude: string; recorded_at: string } | null;
   created_at: string;
   updated_at: string;
 }

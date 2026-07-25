@@ -79,15 +79,19 @@ export default function TrackingPage() {
                 driverPosition={
                   order.delivery?.last_position
                     ? {
-                        lat: order.delivery.last_position.latitude,
-                        lng: order.delivery.last_position.longitude,
+                        lat: parseFloat(order.delivery.last_position.latitude),
+                        lng: parseFloat(order.delivery.last_position.longitude),
                         label: "Position du livreur",
                       }
                     : null
                 }
                 destination={
                   order.address_detail?.latitude != null && order.address_detail?.longitude != null
-                    ? { lat: order.address_detail.latitude, lng: order.address_detail.longitude, label: "Votre adresse" }
+                    ? {
+                        lat: parseFloat(order.address_detail.latitude),
+                        lng: parseFloat(order.address_detail.longitude),
+                        label: "Votre adresse",
+                      }
                     : null
                 }
                 className="h-56 w-full"

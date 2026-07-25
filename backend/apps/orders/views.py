@@ -30,7 +30,10 @@ class AddressViewSet(viewsets.ModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    """Un acheteur voit ses propres commandes, un vendeur celles de ses boutiques, l'admin voit tout."""
+    """
+    Un acheteur voit ses propres commandes, un vendeur celles de ses boutiques,
+    un livreur celles dont la livraison lui est affectée, l'admin voit tout.
+    """
 
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -40,7 +43,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if user.has_role(Role.RoleName.ADMIN):
             return Order.objects.all()
         return Order.objects.filter(
-            models.Q(customer=user) | models.Q(store__owner=user)
+            models.Q(customer=user) | models.Q(store__owner=user) | models.Q(delivery__driver__user=user)
         ).distinct()
 
     @action(detail=False, methods=["post"])

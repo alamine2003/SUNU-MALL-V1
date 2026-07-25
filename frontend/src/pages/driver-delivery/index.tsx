@@ -79,11 +79,19 @@ export default function DriverDeliveryPage() {
   }
 
   const driverPosition = delivery.last_position
-    ? { lat: delivery.last_position.latitude, lng: delivery.last_position.longitude, label: "Votre position" }
+    ? {
+        lat: parseFloat(delivery.last_position.latitude),
+        lng: parseFloat(delivery.last_position.longitude),
+        label: "Votre position",
+      }
     : null;
   const destination =
     order?.address_detail?.latitude != null && order?.address_detail?.longitude != null
-      ? { lat: order.address_detail.latitude, lng: order.address_detail.longitude, label: "Adresse de livraison" }
+      ? {
+          lat: parseFloat(order.address_detail.latitude),
+          lng: parseFloat(order.address_detail.longitude),
+          label: "Adresse de livraison",
+        }
       : null;
 
   return (
