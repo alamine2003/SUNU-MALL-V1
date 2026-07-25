@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
@@ -28,39 +28,45 @@ interface DeliveryMapProps {
   className?: string;
 }
 
+/**
+ * Implémenté en Leaflet natif (pas react-leaflet) : react-leaflet v4 lève
+ * "Map container is already initialized" sous React 18 StrictMode, qui
+ * monte/démonte les composants deux fois en dev pour détecter les effets
+ * de bord. Gérer nous-mêmes le cycle de vie (création + `map.remove()` au
+ * nettoyage) évite ce problème.
+ */
 export function DeliveryMap({ driverPosition, destination, className }: DeliveryMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const points = [driverPosition, destination].filter((p): p is MapPoint => !!p);
+
+  useEffect(() => {
+    if (!containerRef.current || points.length === 0) return;
+
+    const center: [number, number] =
+      points.length === 2
+        ? [(points[0].lat + points[1].lat) / 2, (points[0].lng + points[1].lng) / 2]
+        : [points[0].lat, points[0].lng];
+
+    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(center, points.length === 2 ? 13 : 15);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    if (driverPosition) {
+      L.marker([driverPosition.lat, driverPosition.lng], { icon: driverIcon }).addTo(map).bindPopup(driverPosition.label);
+    }
+    if (destination) {
+      L.marker([destination.lat, destination.lng], { icon: destinationIcon }).addTo(map).bindPopup(destination.label);
+    }
+
+    return () => {
+      map.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverPosition?.lat, driverPosition?.lng, destination?.lat, destination?.lng]);
+
   if (points.length === 0) return null;
 
-  const center: [number, number] =
-    points.length === 2
-      ? [(points[0].lat + points[1].lat) / 2, (points[0].lng + points[1].lng) / 2]
-      : [points[0].lat, points[0].lng];
-
-  return (
-    <div className={cn("overflow-hidden rounded-2xl", className)}>
-      <MapContainer
-        key={`${center[0]},${center[1]},${points.length}`}
-        center={center}
-        zoom={points.length === 2 ? 13 : 15}
-        scrollWheelZoom={false}
-        className="h-full w-full"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {driverPosition && (
-          <Marker position={[driverPosition.lat, driverPosition.lng]} icon={driverIcon}>
-            <Popup>{driverPosition.label}</Popup>
-          </Marker>
-        )}
-        {destination && (
-          <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
-            <Popup>{destination.label}</Popup>
-          </Marker>
-        )}
-      </MapContainer>
-    </div>
-  );
+  return <div ref={containerRef} className={cn("overflow-hidden rounded-2xl", className)} />;
 }
