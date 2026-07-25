@@ -13,7 +13,7 @@ export default function AdminManagersPage() {
 
   const admins = useMemo(() => users?.filter((u) => u.roles.includes("admin")) ?? [], [users]);
 
-  async function toggleActive(id: number, isActive: boolean) {
+  async function toggleActive(id: string, isActive: boolean) {
     await usersApi.setUserActive(id, !isActive);
     refetch();
   }

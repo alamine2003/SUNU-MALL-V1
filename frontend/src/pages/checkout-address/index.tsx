@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ChevronRight, MapPin, Plus } from "lucide-react";
+import { ChevronRight, MapPin, Navigation, Plus } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as ordersApi from "@/api/orders";
 import { Card } from "@/components/ui/Card";
@@ -26,6 +26,9 @@ export default function CheckoutAddressPage() {
   const setAddress = useCheckoutStore((s) => s.setAddress);
   const { data: addresses, loading } = useAsync(() => ordersApi.listAddresses(), []);
   const [showForm, setShowForm] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const {
     register,
@@ -35,8 +38,30 @@ export default function CheckoutAddressPage() {
 
   if (!storeId) return <Navigate to="/cart" replace />;
 
+  function captureLocation() {
+    if (!navigator.geolocation) {
+      setLocationError("Localisation non disponible sur cet appareil.");
+      return;
+    }
+    setLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      () => {
+        setLocationError("Localisation refusée ou indisponible.");
+        setLocating(false);
+      },
+    );
+  }
+
   async function onCreate(values: FormValues) {
-    const address = await ordersApi.createAddress(values);
+    const address = await ordersApi.createAddress({
+      ...values,
+      ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+    });
     setAddress(address);
     navigate("/checkout-delivery");
   }
@@ -91,6 +116,19 @@ export default function CheckoutAddressPage() {
               <Input label="Ville" {...register("city")} error={errors.city?.message} />
               <Input label="Pays" {...register("country")} error={errors.country?.message} />
             </div>
+
+            <div>
+              <Button type="button" variant="secondary" size="sm" onClick={captureLocation} loading={locating}>
+                <Navigation className="h-4 w-4" />
+                {coords ? "Position enregistrée ✓" : "Utiliser ma position actuelle"}
+              </Button>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {coords
+                  ? "Le livreur et vous pourrez suivre la livraison sur une carte."
+                  : locationError ?? "Optionnel : permet d'afficher une carte pendant la livraison."}
+              </p>
+            </div>
+
             <Button type="submit" loading={isSubmitting} className="mt-2">
               Enregistrer et continuer
             </Button>

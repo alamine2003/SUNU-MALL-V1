@@ -45,6 +45,7 @@ import DriverDashboardPage from "@/pages/driver-dashboard";
 import DriverDeliveryPage from "@/pages/driver-delivery";
 
 import AdminDashboardPage from "@/pages/admin";
+import AdminUsersPage from "@/pages/admin-users";
 import AdminManagersPage from "@/pages/admin-managers";
 import AdminShopsPage from "@/pages/admin-shops";
 
@@ -117,6 +118,7 @@ export const router = createBrowserRouter([
     element: <AdminLayout />,
     children: [
       { path: "/admin", element: <AdminDashboardPage /> },
+      { path: "/admin-users", element: <AdminUsersPage /> },
       { path: "/admin-managers", element: <AdminManagersPage /> },
       { path: "/admin-shops", element: <AdminShopsPage /> },
     ],

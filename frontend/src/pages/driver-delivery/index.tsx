@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle2, MapPin, Navigation, PackageSearch, Truck } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
@@ -9,6 +9,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatPrice } from "@/lib/utils";
 import type { DeliveryStatus } from "@/types";
+
+const DeliveryMap = lazy(() => import("@/components/marketplace/DeliveryMap").then((m) => ({ default: m.DeliveryMap })));
 
 const NEXT_STATUS: Partial<Record<DeliveryStatus, DeliveryStatus>> = {
   assigned: "picked_up",
@@ -62,6 +64,7 @@ export default function DriverDeliveryPage() {
         try {
           await ordersApi.shareDeliveryPosition(deliveryId, pos.coords.latitude, pos.coords.longitude);
           setPositionMessage("Position partagée avec le client.");
+          refetch();
         } catch {
           setPositionMessage("Impossible d'envoyer la position.");
         } finally {
@@ -74,6 +77,14 @@ export default function DriverDeliveryPage() {
       },
     );
   }
+
+  const driverPosition = delivery.last_position
+    ? { lat: delivery.last_position.latitude, lng: delivery.last_position.longitude, label: "Votre position" }
+    : null;
+  const destination =
+    order?.address_detail?.latitude != null && order?.address_detail?.longitude != null
+      ? { lat: order.address_detail.latitude, lng: order.address_detail.longitude, label: "Adresse de livraison" }
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,6 +103,17 @@ export default function DriverDeliveryPage() {
             <p className="text-sm font-bold text-orange">{formatPrice(order.total_amount)}</p>
           </>
         )}
+
+        {driverPosition || destination ? (
+          <Suspense fallback={<div className="h-56 w-full animate-pulse rounded-2xl bg-muted" />}>
+            <DeliveryMap driverPosition={driverPosition} destination={destination} className="h-56 w-full" />
+          </Suspense>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-4 text-center text-xs text-muted-foreground">
+            Aucune position à afficher pour l'instant. Partagez votre position pour l'afficher sur la carte.
+          </div>
+        )}
+
         <p className="border-t border-border pt-3 text-sm">
           Statut actuel : <strong className="text-ink">{delivery.status}</strong>
         </p>
