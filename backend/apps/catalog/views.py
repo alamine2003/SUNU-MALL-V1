@@ -1,11 +1,17 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, MultiPartParser
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Category, Product, Store
-from .serializers import CategorySerializer, ProductSerializer, StoreSerializer
-from apps.users.permissions import IsAdmin
-from apps.monetization.models import Notification
+from django.shortcuts import get_object_or_404
+from django.db import models
+from django.utils import timezone
+from .models import Category, Product, ProductImage, ProductVariant, Store
+from .serializers import CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer, StoreSerializer
+from apps.users.permissions import IsAdmin, IsStoreOwnerOrAdmin
+from apps.users.models import Role
+from apps.monetization.models import Notification, SponsoredProduct
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -32,14 +38,121 @@ class ProductViewSet(viewsets.ModelViewSet):
     filterset_fields = ["store", "category", "status"]
     search_fields = ["name", "description"]
 
-class StoreViewSet(viewsets.ModelViewSet):
-    """Gestion des boutiques pour l'admin, y compris validation et rejet."""
-    queryset = Store.objects.all()
-    serializer_class = StoreSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    def get_permissions(self):
+        # La lecture (list/retrieve/sponsored) reste publique ; seules les
+        # actions qui modifient un produit précis exigent d'en être propriétaire.
+        if self.action in ["update", "partial_update", "destroy", "upload_image", "delete_image"]:
+            return [permissions.IsAuthenticated(), IsStoreOwnerOrAdmin()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and user.has_role(Role.RoleName.ADMIN):
+            return Product.objects.all()
+        if user.is_authenticated:
+            return Product.objects.filter(models.Q(status=Product.Status.ACTIVE) | models.Q(store__owner=user))
+        return Product.objects.filter(status=Product.Status.ACTIVE)
 
     def perform_create(self, serializer):
+        store = serializer.validated_data.get("store")
+        user = self.request.user
+        if not user.has_role(Role.RoleName.ADMIN) and store.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez ajouter des produits que dans votre propre boutique.")
         serializer.save()
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="images",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_image(self, request, pk=None):
+        """Upload d'une photo produit (multipart/form-data, champ 'image') vers MinIO."""
+        product = self.get_object()
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"error": "Fichier 'image' requis."}, status=status.HTTP_400_BAD_REQUEST)
+        position = product.images.count()
+        product_image = ProductImage.objects.create(product=product, image=image_file, position=position)
+        return Response(ProductImageSerializer(product_image).data, status=status.HTTP_201_CREATED)
+
+    @upload_image.mapping.delete
+    def delete_image(self, request, pk=None):
+        product = self.get_object()
+        image_id = request.query_params.get("image_id")
+        image = get_object_or_404(ProductImage, pk=image_id, product=product)
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
+    def sponsored(self, request):
+        """
+        Produits actuellement mis en avant (campagne de sponsoring active),
+        accessible publiquement pour alimenter les carrousels "Sponsorisé"
+        de la marketplace (accueil, résultats de recherche, etc.).
+        """
+        today = timezone.now().date()
+        sponsored_product_ids = SponsoredProduct.objects.filter(
+            status=SponsoredProduct.Status.ACTIVE,
+            starts_at__lte=today,
+            ends_at__gte=today,
+        ).values_list("product_id", flat=True)
+        queryset = self.get_queryset().filter(id__in=sponsored_product_ids)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+class ProductVariantViewSet(viewsets.ModelViewSet):
+    """
+    Variantes d'un produit (SKU, prix, attributs). Lecture publique pour
+    permettre au panier de résoudre un product_variant ; écriture réservée
+    au propriétaire de la boutique (à affiner avec une permission dédiée
+    une fois le flux de gestion produit stabilisé côté frontend).
+    """
+
+    queryset = ProductVariant.objects.all()
+    serializer_class = ProductVariantSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["product"]
+
+    def get_permissions(self):
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [permissions.IsAuthenticated(), IsStoreOwnerOrAdmin()]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        product = serializer.validated_data.get("product")
+        user = self.request.user
+        if not user.has_role(Role.RoleName.ADMIN) and product.store.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez ajouter des variantes qu'à vos propres produits.")
+        serializer.save()
+
+
+class StoreViewSet(viewsets.ModelViewSet):
+    """
+    Lecture publique des boutiques actives (un client doit pouvoir parcourir
+    les boutiques sans être connecté) ; un commerçant voit en plus ses propres
+    boutiques quel que soit leur statut ; l'admin voit tout et seul l'admin
+    peut approuver/rejeter.
+    """
+    serializer_class = StoreSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_permissions(self):
+        if self.action in ["approve", "reject"]:
+            return [permissions.IsAuthenticated(), IsAdmin()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and user.has_role(Role.RoleName.ADMIN):
+            return Store.objects.all()
+        if user.is_authenticated:
+            return Store.objects.filter(models.Q(status=Store.Status.ACTIVE) | models.Q(owner=user))
+        return Store.objects.filter(status=Store.Status.ACTIVE)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
     def _notify_owner(self, store, subject, message):
         Notification.objects.create(

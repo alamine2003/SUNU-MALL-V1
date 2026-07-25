@@ -95,6 +95,19 @@ AWS_SECRET_ACCESS_KEY = config("MINIO_SECRET_KEY", default="minioadmin")
 AWS_STORAGE_BUCKET_NAME = config("MINIO_BUCKET", default="sunu-mall")
 AWS_S3_ENDPOINT_URL = config("MINIO_ENDPOINT", default="http://minio:9000")
 AWS_S3_USE_SSL = config("MINIO_USE_SSL", default=False, cast=bool)
+# Le endpoint ci-dessus (nom de service Docker) n'est joignable que depuis
+# l'intérieur du réseau Docker. Pour que les URLs d'images générées soient
+# accessibles depuis le navigateur, on force le domaine public si fourni,
+# et on désactive la signature de requête (le bucket est en lecture publique).
+AWS_QUERYSTRING_AUTH = False
+AWS_DEFAULT_ACL = None
+_minio_public_endpoint = config("MINIO_PUBLIC_ENDPOINT", default="")
+if _minio_public_endpoint:
+    # MinIO utilise l'adressage "path-style" (endpoint/bucket/clé), pas le
+    # style "virtual-hosted" (bucket.endpoint/clé) que django-storages suppose
+    # par défaut pour AWS_S3_CUSTOM_DOMAIN — on inclut donc le bucket dedans.
+    AWS_S3_CUSTOM_DOMAIN = f"{_minio_public_endpoint}/{AWS_STORAGE_BUCKET_NAME}"
+    AWS_S3_URL_PROTOCOL = "https:" if AWS_S3_USE_SSL else "http:"
 
 # DRF
 REST_FRAMEWORK = {
@@ -146,10 +159,10 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
-# --- CORS : autorise le frontend Next.js, le dashboard vendeur, le mobile ---
+# --- CORS : autorise le frontend Vite (dev), nginx ---
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3002,http://localhost:3003",
+    default="http://localhost:3000,http://localhost:3004,http://localhost:3010,http://localhost:3011,http://localhost:8081",
     cast=Csv(),
 )
 
@@ -178,4 +191,11 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@sunumall.com")
+
+# --- Paiement (Wave / Orange Money) ---
+# Tant qu'aucune vraie clé marchande n'est fournie, PAYMENT_SANDBOX reste actif
+# et apps.payments.gateways simule le paiement au lieu d'appeler un vrai fournisseur.
+PAYMENT_SANDBOX = config("PAYMENT_SANDBOX", default=True, cast=bool)
+WAVE_API_KEY = config("WAVE_API_KEY", default="")
+ORANGE_MONEY_API_KEY = config("ORANGE_MONEY_API_KEY", default="")
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")

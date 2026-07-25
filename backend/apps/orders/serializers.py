@@ -1,17 +1,114 @@
 from rest_framework import serializers
-from .models import Order, OrderItem
+from .models import Address, DeliveryZone, Driver, Delivery, DeliveryTracking, Order, OrderItem
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ["id", "user", "label", "street", "city", "country", "latitude", "longitude", "created_at"]
+        read_only_fields = ["id", "user", "created_at"]
+
+
+class DeliveryZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryZone
+        fields = ["id", "name", "boundary_geojson", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class DriverSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    phone = serializers.CharField(source="user.phone", read_only=True)
+
+    class Meta:
+        model = Driver
+        fields = [
+            "id", "user", "full_name", "phone", "zone", "vehicle_type",
+            "availability_status", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DeliveryTrackingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryTracking
+        fields = ["id", "delivery", "latitude", "longitude", "recorded_at"]
+        read_only_fields = ["id", "recorded_at"]
+
+
+class DeliverySerializer(serializers.ModelSerializer):
+    driver_detail = DriverSerializer(source="driver", read_only=True)
+    last_position = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Delivery
+        fields = [
+            "id", "order", "driver", "driver_detail", "status",
+            "picked_up_at", "delivered_at", "last_position",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "order", "created_at", "updated_at", "last_position"]
+
+    def get_last_position(self, obj):
+        tracking = obj.trackings.first()
+        if not tracking:
+            return None
+        return {
+            "latitude": tracking.latitude,
+            "longitude": tracking.longitude,
+            "recorded_at": tracking.recorded_at,
+        }
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product_variant.product.name", read_only=True)
+
     class Meta:
         model = OrderItem
-        fields = ["id", "product_variant", "quantity", "unit_price"]
+        fields = ["id", "product_variant", "product_name", "quantity", "unit_price"]
+        read_only_fields = ["id", "unit_price"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    delivery = DeliverySerializer(read_only=True)
+    store_name = serializers.CharField(source="store.name", read_only=True)
+    address_detail = AddressSerializer(source="address", read_only=True)
+    payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ["id", "customer", "status", "total_amount", "items", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = [
+            "id", "customer", "store", "store_name", "address", "address_detail",
+            "total_amount", "delivery_fee", "status", "items", "delivery", "payment",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "customer", "store_name", "address_detail",
+            "total_amount", "status", "items", "delivery", "payment", "created_at", "updated_at",
+        ]
+
+    def get_payment(self, obj):
+        payment = getattr(obj, "payment", None)
+        if not payment:
+            return None
+        return {"id": payment.id, "method": payment.method, "status": payment.status}
+
+
+class CheckoutItemInputSerializer(serializers.Serializer):
+    """Un article du panier envoyé lors du passage de commande."""
+    product_variant = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class CheckoutSerializer(serializers.Serializer):
+    """
+    Payload attendu par OrderViewSet.checkout : construit en une transaction
+    ACID la commande, ses lignes, sa livraison et son paiement en attente,
+    à partir du panier validé sur les écrans checkout-address / -delivery / -payment.
+    """
+    store = serializers.UUIDField()
+    address = serializers.UUIDField()
+    delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2, default=0)
+    payment_method = serializers.ChoiceField(choices=["wave", "orange_money", "card"])
+    items = CheckoutItemInputSerializer(many=True)

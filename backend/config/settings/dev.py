@@ -10,10 +10,4 @@ ALLOWED_HOSTS = ["*"]
 
 # INTERNAL_IPS = ["127.0.0.1"]
 
-# Utiliser SQLite pour développement sans Docker
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# DATABASES est hérité de base.py (Postgres, via infra/docker-compose.dev.yml + pgAdmin)

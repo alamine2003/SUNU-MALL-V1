@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, ProductImage, Store
+from .models import Category, Inventory, Product, ProductImage, ProductVariant, Store
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -10,9 +10,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductImage
-        fields = ["id", "minio_path", "position", "created_at"]
+        fields = ["id", "url", "position", "created_at"]
+
+    def get_url(self, obj):
+        return obj.get_signed_url() or None
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -24,17 +29,46 @@ class StoreSerializer(serializers.ModelSerializer):
             "id", "owner", "owner_email", "category", "name",
             "status", "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "owner_email"]
+        read_only_fields = ["id", "owner", "created_at", "updated_at", "owner_email"]
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    is_available = serializers.SerializerMethodField()
+    quantity = serializers.SerializerMethodField()
+    initial_quantity = serializers.IntegerField(write_only=True, required=False, default=100, min_value=0)
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "id", "product", "sku", "attributes", "price",
+            "is_available", "quantity", "initial_quantity",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "is_available", "quantity", "created_at", "updated_at"]
+
+    def get_is_available(self, obj):
+        return obj.is_available()
+
+    def get_quantity(self, obj):
+        return obj.inventory.available() if hasattr(obj, "inventory") else 0
+
+    def create(self, validated_data):
+        initial_quantity = validated_data.pop("initial_quantity", 100)
+        variant = super().create(validated_data)
+        Inventory.objects.create(variant=variant, quantity=initial_quantity)
+        return variant
 
 
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
+    variants = ProductVariantSerializer(many=True, read_only=True)
+    store_name = serializers.CharField(source='store.name', read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            "id", "store", "category", "brand", "name", "description",
-            "base_price", "status", "images",
+            "id", "store", "store_name", "category", "brand", "name", "description",
+            "base_price", "status", "images", "variants",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

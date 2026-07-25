@@ -54,6 +54,9 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['-created_at']
+
     def mark_succeeded(self):
         self.status = self.Status.SUCCESS
         self.paid_at = timezone.now()
