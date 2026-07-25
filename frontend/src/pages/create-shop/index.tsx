@@ -4,22 +4,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Store as StoreIcon, TriangleAlert } from "lucide-react";
-import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ApiError } from "@/lib/api";
 
 const schema = z.object({
   name: z.string().min(2, "Nom de boutique requis"),
-  category: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 
 export default function CreateShopPage() {
   const navigate = useNavigate();
-  const { data: categories } = useAsync(() => catalogApi.listCategories(), []);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -31,10 +28,16 @@ export default function CreateShopPage() {
   async function onSubmit(values: FormValues) {
     setError(null);
     try {
-      await catalogApi.createStore({ name: values.name, category: values.category || null });
+      await catalogApi.createStore({ name: values.name });
       navigate("/merchant");
-    } catch {
-      setError("Impossible de créer la boutique.");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as Record<string, unknown>;
+        const firstError = Object.values(data ?? {})[0];
+        setError(Array.isArray(firstError) ? String(firstError[0]) : "Impossible de créer la boutique.");
+      } else {
+        setError("Impossible de contacter le serveur.");
+      }
     }
   }
 
@@ -52,14 +55,6 @@ export default function CreateShopPage() {
       <Card>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input label="Nom de la boutique" {...register("name")} error={errors.name?.message} />
-          <Select label="Catégorie" {...register("category")}>
-            <option value="">Sélectionner…</option>
-            {categories?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
               <TriangleAlert className="h-4 w-4 shrink-0" />

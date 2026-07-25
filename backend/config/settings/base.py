@@ -198,4 +198,4 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@sunumall.com"
 PAYMENT_SANDBOX = config("PAYMENT_SANDBOX", default=True, cast=bool)
 WAVE_API_KEY = config("WAVE_API_KEY", default="")
 ORANGE_MONEY_API_KEY = config("ORANGE_MONEY_API_KEY", default="")
-FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3004")

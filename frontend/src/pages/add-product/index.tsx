@@ -12,12 +12,12 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ApiError } from "@/lib/api";
 import { myStores } from "@/lib/merchant";
 
 const schema = z.object({
   store: z.string().min(1, "Boutique requise"),
   category: z.string().optional(),
-  brand: z.string().optional(),
   name: z.string().min(2, "Nom du produit requis"),
   description: z.string().optional(),
   base_price: z.coerce.number().positive("Prix invalide"),
@@ -54,7 +54,6 @@ export default function AddProductPage() {
       const product = await catalogApi.createProduct({
         store: values.store,
         category: values.category || null,
-        brand: values.brand,
         name: values.name,
         description: values.description,
         base_price: values.base_price,
@@ -69,8 +68,14 @@ export default function AddProductPage() {
         await catalogApi.uploadProductImage(product.id, imageFile);
       }
       navigate("/catalog");
-    } catch {
-      setError("Impossible de créer le produit.");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as Record<string, unknown>;
+        const firstError = Object.values(data ?? {})[0];
+        setError(Array.isArray(firstError) ? String(firstError[0]) : "Impossible de créer le produit.");
+      } else {
+        setError("Impossible de contacter le serveur.");
+      }
     }
   }
 
@@ -110,17 +115,14 @@ export default function AddProductPage() {
           </Select>
           <Input label="Nom du produit" {...register("name")} error={errors.name?.message} />
           <Textarea label="Description" {...register("description")} rows={3} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Marque" {...register("brand")} />
-            <Select label="Catégorie" {...register("category")}>
-              <option value="">Sélectionner…</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <Select label="Catégorie" {...register("category")}>
+            <option value="">Sélectionner…</option>
+            {categories?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
           <div className="grid grid-cols-3 gap-4">
             <Input label="Prix (XOF)" type="number" step="1" {...register("base_price")} error={errors.base_price?.message} />
             <Input label="SKU" {...register("sku")} error={errors.sku?.message} />
