@@ -1,0 +1,249 @@
+export type Role = "admin" | "merchant" | "client" | "driver";
+
+/** Forme de réponse standard de la pagination DRF (PageNumberPagination) sur les endpoints `list`. */
+export interface Paginated<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  roles: Role[];
+  is_verified: boolean;
+}
+
+export interface Category {
+  id: string;
+  parent: string | null;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Store {
+  id: string;
+  owner: string;
+  owner_email: string;
+  category: string | null;
+  name: string;
+  status: "inactive" | "active" | "suspended";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductImage {
+  id: string;
+  url: string | null;
+  position: number;
+  created_at: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  product: string;
+  sku: string;
+  attributes: Record<string, string>;
+  price: string;
+  is_available: boolean;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Product {
+  id: string;
+  store: string;
+  store_name: string;
+  category: string | null;
+  brand: string;
+  name: string;
+  description: string;
+  base_price: string;
+  status: "draft" | "active" | "inactive";
+  images: ProductImage[];
+  variants: ProductVariant[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Address {
+  id: string;
+  user: string;
+  label: string;
+  street: string;
+  city: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+}
+
+export interface CartItem {
+  id: string;
+  product_variant: string;
+  product_name: string;
+  unit_price: string;
+  quantity: number;
+  subtotal: number;
+  added_at: string;
+  store: string;
+}
+
+export interface Cart {
+  id: string;
+  user: string;
+  items: CartItem[];
+  total_price: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WishlistItem {
+  id: string;
+  product: string;
+  product_name: string;
+  product_price: string;
+  added_at: string;
+}
+
+export interface Wishlist {
+  id: string;
+  user: string;
+  items: WishlistItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type DriverAvailability = "available" | "busy" | "offline";
+
+export interface Driver {
+  id: string;
+  user: string;
+  full_name: string;
+  phone: string;
+  zone: number | null;
+  vehicle_type: string;
+  availability_status: DriverAvailability;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DeliveryStatus = "pending" | "assigned" | "picked_up" | "delivered" | "cancelled";
+
+export interface Delivery {
+  id: string;
+  order: string;
+  driver: string | null;
+  driver_detail: Driver | null;
+  status: DeliveryStatus;
+  picked_up_at: string | null;
+  delivered_at: string | null;
+  last_position: { latitude: number; longitude: number; recorded_at: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  product_variant: string;
+  product_name: string;
+  quantity: number;
+  unit_price: string;
+}
+
+export type OrderStatus = "pending" | "paid" | "processing" | "shipped" | "delivered" | "cancelled";
+
+export interface Order {
+  id: string;
+  customer: string;
+  store: string;
+  store_name: string;
+  address: string;
+  address_detail: Address;
+  total_amount: string;
+  delivery_fee: string;
+  status: OrderStatus;
+  items: OrderItem[];
+  delivery: Delivery;
+  payment: { id: string; method: string; status: "pending" | "success" | "failed" | "refunded" } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CheckoutPayload {
+  store: string;
+  address: string;
+  delivery_fee: number;
+  payment_method: "wave" | "orange_money" | "card";
+  items: { product_variant: string; quantity: number }[];
+}
+
+export interface Notification {
+  id: string;
+  user: string;
+  channel: string;
+  subject: string;
+  message: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface SponsoredProduct {
+  id: string;
+  product: string;
+  store: string;
+  daily_budget: string;
+  starts_at: string;
+  ends_at: string;
+  status: "active" | "inactive" | "expired";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: string;
+  billing_cycle: string;
+  features: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  plan: string;
+  subscriber_type: string;
+  subscriber_id: string;
+  status: string;
+  starts_at: string;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  subscription: string;
+  amount: string;
+  status: string;
+  issued_at: string;
+  due_at: string | null;
+  paid_at: string | null;
+}
+
+export interface Payment {
+  id: string;
+  order: string;
+  method: "wave" | "orange_money" | "card";
+  amount: string;
+  status: "pending" | "success" | "failed" | "refunded";
+  provider_ref: string;
+  created_at: string;
+}

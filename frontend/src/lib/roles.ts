@@ -1,0 +1,8 @@
+import type { Role } from "@/store/authStore";
+
+export function roleHomePath(roles: Role[]): string {
+  if (roles.includes("admin")) return "/admin";
+  if (roles.includes("merchant")) return "/merchant";
+  if (roles.includes("driver")) return "/driver-dashboard";
+  return "/home";
+}

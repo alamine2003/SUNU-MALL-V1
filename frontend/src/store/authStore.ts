@@ -1,0 +1,55 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { AuthUser, Role } from "@/types";
+
+export type { AuthUser, Role };
+
+export interface LoginPayload {
+  user: AuthUser;
+  access: string | null;
+  refresh: string | null;
+}
+
+interface AuthState {
+  user: AuthUser | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  hasHydrated: boolean;
+  loginSuccess: (payload: LoginPayload) => void;
+  setTokens: (access: string, refresh?: string) => void;
+  logout: () => void;
+  hasRole: (role: Role) => boolean;
+  setHasHydrated: (value: boolean) => void;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      hasHydrated: false,
+
+      loginSuccess: ({ user, access, refresh }) =>
+        set({ user, accessToken: access, refreshToken: refresh }),
+
+      setTokens: (access, refresh) =>
+        set((state) => ({
+          accessToken: access,
+          refreshToken: refresh ?? state.refreshToken,
+        })),
+
+      logout: () => set({ user: null, accessToken: null, refreshToken: null }),
+
+      hasRole: (role) => !!get().user?.roles.includes(role),
+
+      setHasHydrated: (value) => set({ hasHydrated: value }),
+    }),
+    {
+      name: "sunu-mall-auth",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    },
+  ),
+);

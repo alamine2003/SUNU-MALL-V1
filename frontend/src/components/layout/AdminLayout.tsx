@@ -1,0 +1,17 @@
+import { LayoutDashboard, ShieldCheck, Store as StoreIcon } from "lucide-react";
+import { RoleGuard } from "@/components/auth/RoleGuard";
+import { DashboardShell, type DashboardNavItem } from "@/components/layout/DashboardShell";
+
+const nav: DashboardNavItem[] = [
+  { to: "/admin", label: "Tableau de bord", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { to: "/admin-managers", label: "Administrateurs", icon: <ShieldCheck className="h-4 w-4" /> },
+  { to: "/admin-shops", label: "Boutiques", icon: <StoreIcon className="h-4 w-4" /> },
+];
+
+export function AdminLayout() {
+  return (
+    <RoleGuard roles={["admin"]}>
+      <DashboardShell nav={nav} title="Administration" />
+    </RoleGuard>
+  );
+}

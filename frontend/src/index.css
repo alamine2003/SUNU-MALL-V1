@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --shadow-orange: 0 4px 14px 0 rgba(255, 122, 0, 0.39);
+  --shadow-orange-lg: 0 6px 20px rgba(255, 122, 0, 0.23);
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(300%) skewX(-15deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-white text-ink font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display font-bold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .hover-lift {
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .btn-orange {
+    @apply relative overflow-hidden bg-gradient-orange text-white;
+    box-shadow: var(--shadow-orange);
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.2s ease,
+      filter 0.15s ease;
+  }
+  .btn-orange::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: translateX(-100%) skewX(-15deg);
+    pointer-events: none;
+  }
+  .btn-orange:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-orange-lg);
+  }
+  .btn-orange:hover::after {
+    animation: shine 0.8s ease;
+  }
+  .btn-orange:active {
+    transform: translateY(0);
+  }
+
+  .surface-card {
+    @apply rounded-lg border border-border bg-white shadow-card;
+  }
+
+  .card-interactive {
+    @apply cursor-pointer transition-all;
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.25s ease,
+      border-color 0.2s ease;
+  }
+  .card-interactive:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 122, 0, 0.35);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .card-elevated {
+    @apply border-transparent;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .navy-panel {
+    @apply bg-gradient-navy text-white;
+  }
+
+  .btn-secondary {
+    @apply border-[1.5px] border-navy bg-transparent text-navy;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      transform 0.15s ease,
+      box-shadow 0.2s ease;
+  }
+  .btn-secondary:hover {
+    @apply bg-navy text-white;
+    box-shadow: var(--shadow-navy-glow);
+    transform: translateY(-1px);
+  }
+  .btn-secondary:active {
+    transform: translateY(0);
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-ink;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .btn-ghost:hover {
+    @apply bg-accent text-orange-dark;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-white;
+    box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.35);
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.2s ease,
+      filter 0.15s ease;
+  }
+  .btn-danger:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+  }
+  .btn-danger:active {
+    transform: translateY(0);
+  }
+
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.35);
+  }
+
+  .modal-panel {
+    animation: modal-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .modal-backdrop {
+    animation: backdrop-in 0.18s ease both;
+  }
+
+  .skeleton {
+    @apply rounded-md;
+    background: linear-gradient(90deg, #eef1f7 0%, #f8f9fc 50%, #eef1f7 100%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s infinite linear;
+  }
+
+  .badge-sponsored {
+    @apply rounded-md bg-gradient-orange px-2 py-0.5 text-[10px] font-bold tracking-wide text-white;
+    box-shadow: 0 4px 12px rgba(255, 140, 0, 0.35);
+  }
+
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
