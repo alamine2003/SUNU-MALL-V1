@@ -16,6 +16,7 @@ import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as monetizationApi from "@/api/monetization";
 import { ProductCard } from "@/components/marketplace/ProductCard";
+import { ProductRail } from "@/components/marketplace/ProductRail";
 import { CategoryCarousel } from "@/components/marketplace/CategoryCarousel";
 import { HeroSlideshow } from "@/components/marketplace/HeroSlideshow";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -49,6 +50,18 @@ export default function HomePage() {
   } = useAsync(() => catalogApi.listProducts(), []);
   const { data: categories, loading: loadingCategories } = useAsync(() => catalogApi.listCategories(), []);
   const { data: plans, loading: loadingPlans } = useAsync(() => monetizationApi.listSubscriptionPlans(), []);
+  const { data: sponsoredProducts, loading: loadingSponsored } = useAsync(() => catalogApi.listSponsoredProducts(), []);
+  const { data: bestSellers, loading: loadingBestSellers } = useAsync(() => catalogApi.listBestSellers(), []);
+
+  const topCategories = (categories ?? []).filter((c) => !c.parent).slice(0, 2);
+  const { data: categoryProducts1, loading: loadingCat1 } = useAsync(
+    () => (topCategories[0] ? catalogApi.listProducts({ category: topCategories[0].id }) : Promise.resolve([])),
+    [topCategories[0]?.id],
+  );
+  const { data: categoryProducts2, loading: loadingCat2 } = useAsync(
+    () => (topCategories[1] ? catalogApi.listProducts({ category: topCategories[1].id }) : Promise.resolve([])),
+    [topCategories[1]?.id],
+  );
 
   const recentlyViewedIds = useRecentlyViewedStore((s) => s.productIds);
   const { data: recentlyViewed } = useAsync(async () => {
@@ -150,8 +163,14 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* ─── SPONSORISÉ ─── */}
+      <ProductRail title="Sponsorisé" products={sponsoredProducts} loading={loadingSponsored} sponsored />
+
+      {/* ─── MEILLEURES VENTES ─── */}
+      <ProductRail title="Meilleures ventes" viewAllHref="/search" products={bestSellers} loading={loadingBestSellers} />
+
       {/* ─── NOUVEAUTÉS ─── */}
-      <section className="mx-auto max-w-7xl px-4 py-4 pb-10">
+      <section className="mx-auto max-w-7xl px-4 py-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-gray-800">Nouveautés</h2>
           <Link to="/search" className="flex items-center gap-1 text-sm font-semibold text-orange transition-all hover:gap-2">
@@ -177,17 +196,26 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ─── RÉCEMMENT CONSULTÉS ─── */}
-      {recentlyViewed && recentlyViewed.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 pb-10">
-          <h2 className="mb-5 font-display text-xl font-bold text-gray-800">Récemment consultés</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {recentlyViewed.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </section>
+      {/* ─── PAR CATÉGORIE ─── */}
+      {topCategories[0] && (
+        <ProductRail
+          title={topCategories[0].name}
+          viewAllHref={`/category/${topCategories[0].id}`}
+          products={categoryProducts1}
+          loading={loadingCat1}
+        />
       )}
+      {topCategories[1] && (
+        <ProductRail
+          title={topCategories[1].name}
+          viewAllHref={`/category/${topCategories[1].id}`}
+          products={categoryProducts2}
+          loading={loadingCat2}
+        />
+      )}
+
+      {/* ─── RÉCEMMENT CONSULTÉS ─── */}
+      <ProductRail title="Récemment consultés" products={recentlyViewed} />
 
       {/* ─── POURQUOI SUNU MALL ─── */}
       <section className="border-y border-gray-100 bg-white py-10">

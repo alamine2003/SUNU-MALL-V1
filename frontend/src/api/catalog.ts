@@ -84,6 +84,10 @@ export function listSponsoredProducts() {
   return apiGet<Product[]>("/catalog/products/sponsored/");
 }
 
+export function listBestSellers() {
+  return apiGet<Product[]>("/catalog/products/best_sellers/");
+}
+
 export function createProduct(payload: {
   store: string;
   category?: string | null;

@@ -104,6 +104,29 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
+    def best_sellers(self, request):
+        """
+        Produits les plus vendus (quantité totale commandée sur des
+        commandes non annulées), pour un rail "Meilleures ventes" sur
+        la marketplace. Public, comme `sponsored`.
+        """
+        from apps.orders.models import Order, OrderItem
+
+        top_product_ids = list(
+            OrderItem.objects.exclude(order__status=Order.Status.CANCELLED)
+            .values("product_variant__product_id")
+            .annotate(total_qty=models.Sum("quantity"))
+            .order_by("-total_qty")
+            .values_list("product_variant__product_id", flat=True)[:12]
+        )
+        # `filter(id__in=...)` ne préserve pas l'ordre de popularité : on le
+        # ré-applique nous-mêmes après coup.
+        products_by_id = {p.id: p for p in self.get_queryset().filter(id__in=top_product_ids)}
+        ordered = [products_by_id[pid] for pid in top_product_ids if pid in products_by_id]
+        serializer = self.get_serializer(ordered, many=True)
+        return Response(serializer.data)
+
 class ProductVariantViewSet(viewsets.ModelViewSet):
     """
     Variantes d'un produit (SKU, prix, attributs). Lecture publique pour
