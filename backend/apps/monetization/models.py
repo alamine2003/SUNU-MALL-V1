@@ -33,10 +33,32 @@ class Notification(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    @staticmethod
-    def send():
-        # Implement notification sending logic here
-        pass
+    def send(self):
+        """Envoie la notification selon son canal (no-op pour push, pas encore implémenté)."""
+        if self.channel == self.Channel.EMAIL:
+            self._send_email()
+        elif self.channel == self.Channel.SMS:
+            self._send_sms()
+
+    def _send_email(self):
+        from django.conf import settings
+        from django.core.mail import send_mail
+
+        try:
+            send_mail(self.subject, self.message, settings.DEFAULT_FROM_EMAIL, [self.user.email], fail_silently=False)
+            self.mark_sent()
+        except Exception:
+            self.mark_failed()
+
+    def _send_sms(self):
+        """
+        Aucun fournisseur SMS n'est configuré (Twilio, Africa's Talking,
+        API SMS d'un opérateur local, etc.). Brancher l'appel ici une fois
+        un fournisseur choisi et ses identifiants disponibles — en
+        attendant, la notification reste tracée mais jamais réellement
+        envoyée, pour ne pas prétendre à tort qu'un SMS est parti.
+        """
+        self.mark_failed()
 
     def mark_sent(self):
         self.status = self.Status.SENT

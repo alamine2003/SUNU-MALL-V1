@@ -7,8 +7,34 @@ from rest_framework.response import Response
 from .models import Payment
 from .serializers import PaymentSerializer
 from .gateways import PaymentGatewayError, get_gateway
+from apps.monetization.models import Notification
 from apps.orders.models import Order
 from apps.users.models import Role
+
+
+def _send_order_confirmation(order):
+    """
+    Confirmation envoyée au client juste après le paiement réussi. Email
+    réellement délivré (SMTP déjà configuré) ; le canal SMS existe déjà
+    dans le modèle Notification pour quand un fournisseur sera branché,
+    mais n'envoie rien de réel pour l'instant (voir Notification._send_sms).
+    """
+    subject = f"Commande confirmée — {order.store.name}"
+    message = (
+        f"Bonjour {order.customer.first_name or order.customer.email},\n\n"
+        f"Votre commande n°{str(order.id)[:8]} chez {order.store.name} a été payée avec succès.\n"
+        f"Montant total : {order.total_amount} FCFA.\n\n"
+        "Vous pouvez suivre sa livraison depuis votre espace Sunu Mall.\n\n"
+        "Merci de votre confiance !"
+    )
+    notification = Notification.objects.create(
+        user=order.customer,
+        channel=Notification.Channel.EMAIL,
+        subject=subject,
+        message=message,
+        metadata={"order_id": str(order.id)},
+    )
+    notification.send()
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -63,6 +89,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         if outcome == "success":
             payment.mark_succeeded()
             payment.order.change_status(Order.Status.PAID)
+            _send_order_confirmation(payment.order)
         else:
             payment.mark_failed()
         return Response(PaymentSerializer(payment).data)
