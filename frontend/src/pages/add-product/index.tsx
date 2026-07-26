@@ -57,6 +57,7 @@ export default function AddProductPage() {
         name: values.name,
         description: values.description,
         base_price: values.base_price,
+        status: "active",
       });
       await catalogApi.createVariant({
         product: product.id,

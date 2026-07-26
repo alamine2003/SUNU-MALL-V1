@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ImagePlus, Megaphone, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Megaphone, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as monetizationApi from "@/api/monetization";
@@ -48,6 +48,11 @@ export default function CatalogPage() {
   async function remove(id: string) {
     if (!confirm("Supprimer ce produit ?")) return;
     await catalogApi.deleteProduct(id);
+    refetch();
+  }
+
+  async function publish(id: string) {
+    await catalogApi.updateProduct(id, { status: "active" });
     refetch();
   }
 
@@ -142,6 +147,14 @@ export default function CatalogPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
+                  {product.status === "draft" && (
+                    <button
+                      onClick={() => publish(product.id)}
+                      className="flex items-center gap-1.5 rounded-full bg-orange/10 px-3 py-1.5 text-xs font-semibold text-orange hover:bg-orange/20"
+                    >
+                      <Upload className="h-3.5 w-3.5" /> Publier
+                    </button>
+                  )}
                   <button
                     onClick={() => (sponsorship ? stopSponsoring(sponsorship.id) : setSponsorTarget(product))}
                     className={`rounded-full p-2 hover:bg-muted ${sponsorship ? "text-orange" : "text-muted-foreground"}`}

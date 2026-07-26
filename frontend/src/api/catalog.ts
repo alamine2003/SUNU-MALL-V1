@@ -99,6 +99,7 @@ export function createProduct(payload: {
   name: string;
   description?: string;
   base_price: number;
+  status?: "draft" | "active" | "inactive";
 }) {
   return apiPost<Product>("/catalog/products/", payload);
 }
