@@ -11,6 +11,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { formatDate, formatPrice } from "@/lib/utils";
 
+const DELIVERY_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
+  delivered: "success",
+  picked_up: "warning",
+  assigned: "warning",
+  pending: "default",
+  cancelled: "danger",
+};
+
 const PAGE_SIZE = 20;
 
 const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
@@ -25,9 +33,22 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger
 export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
   const { data: result, loading, error, refetch } = useAsync(() => ordersApi.listOrdersPaginated({ page }), [page]);
+  const { data: drivers } = useAsync(() => ordersApi.listAvailableDrivers(), []);
+  const [assigningDeliveryId, setAssigningDeliveryId] = useState<string | null>(null);
 
   const orders = result?.results ?? [];
   const totalPages = result ? Math.max(1, Math.ceil(result.count / PAGE_SIZE)) : 1;
+
+  async function assign(deliveryId: string, driverId: string) {
+    if (!driverId) return;
+    setAssigningDeliveryId(deliveryId);
+    try {
+      await ordersApi.assignDriver(deliveryId, driverId);
+      refetch();
+    } finally {
+      setAssigningDeliveryId(null);
+    }
+  }
 
   return (
     <div>
@@ -56,6 +77,30 @@ export default function AdminOrdersPage() {
                   <div className="flex items-center gap-3">
                     <Badge variant={STATUS_VARIANT[order.status] ?? "default"}>{order.status}</Badge>
                     <p className="font-bold text-ink">{formatPrice(order.total_amount)}</p>
+                    {order.delivery?.status === "pending" ? (
+                      <select
+                        disabled={assigningDeliveryId === order.delivery.id}
+                        onChange={(e) => order.delivery && assign(order.delivery.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        defaultValue=""
+                        className="focus-ring rounded-lg border border-border px-2 py-1.5 text-xs transition-colors hover:border-orange/50"
+                      >
+                        <option value="" disabled>
+                          Affecter un livreur…
+                        </option>
+                        {drivers?.map((driver) => (
+                          <option key={driver.id} value={driver.id}>
+                            {driver.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      order.delivery && (
+                        <Badge variant={DELIVERY_STATUS_VARIANT[order.delivery.status] ?? "default"}>
+                          Livraison : {order.delivery.status}
+                        </Badge>
+                      )
+                    )}
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </div>
                 </Card>
