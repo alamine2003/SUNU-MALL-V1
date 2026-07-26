@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, Heart, ImageOff, PackageX, ShoppingCart, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Heart, ImageOff, MessageSquare, PackageX, ShoppingCart, TriangleAlert } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as shoppingApi from "@/api/shopping";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Textarea } from "@/components/ui/Textarea";
 import { Spinner } from "@/components/ui/Spinner";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StarRating } from "@/components/ui/StarRating";
 import { QuantityStepper } from "@/components/marketplace/QuantityStepper";
 import { useAuthStore } from "@/store/authStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
-import { cn, formatPrice } from "@/lib/utils";
+import { ApiError } from "@/lib/api";
+import { cn, formatDate, formatPrice } from "@/lib/utils";
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,8 +27,16 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const { data: product, loading } = useAsync(() => catalogApi.getProduct(id!), [id]);
+  const { data: reviews, refetch: refetchReviews } = useAsync(
+    () => (id ? catalogApi.listReviews(id) : Promise.resolve([])),
+    [id],
+  );
 
   useEffect(() => {
     if (product) addRecentlyViewed(product.id);
@@ -47,6 +59,9 @@ export default function ProductDetailPage() {
   const images = product.images;
   const image = images[activeImage]?.url ?? images[0]?.url;
   const isAvailable = variant?.is_available ?? false;
+
+  const averageRating = reviews && reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+  const hasReviewed = !!user && !!reviews?.some((r) => r.user === user.id);
 
   async function handleAddToCart() {
     if (!user) {
@@ -76,6 +91,32 @@ export default function ProductDetailPage() {
       setFeedback({ type: "success", text: "Ajouté à la wishlist !" });
     } catch {
       setFeedback({ type: "error", text: "Impossible d'ajouter à la wishlist." });
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (!user) {
+      navigate(`/login?next=/product/${id}`);
+      return;
+    }
+    if (!id || newRating === 0) return;
+    setSubmittingReview(true);
+    setReviewError(null);
+    try {
+      await catalogApi.createReview({ product: id, rating: newRating, comment: newComment });
+      setNewRating(0);
+      setNewComment("");
+      refetchReviews();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as Record<string, unknown>;
+        const firstError = Object.values(data ?? {})[0];
+        setReviewError(Array.isArray(firstError) ? String(firstError[0]) : "Impossible d'envoyer votre avis.");
+      } else {
+        setReviewError("Impossible de contacter le serveur.");
+      }
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -124,6 +165,14 @@ export default function ProductDetailPage() {
         <div className="flex flex-col gap-4">
           <p className="text-sm font-semibold text-muted-foreground">{product.store_name}</p>
           <h1 className="font-display text-2xl font-extrabold leading-tight text-gray-900 md:text-3xl">{product.name}</h1>
+          {reviews && reviews.length > 0 && (
+            <div className="flex items-center gap-2">
+              <StarRating value={averageRating} size="sm" />
+              <span className="text-sm text-muted-foreground">
+                {averageRating.toFixed(1)} · {reviews.length} avis
+              </span>
+            </div>
+          )}
           <p className="font-display text-3xl font-extrabold text-orange">{formatPrice(variant?.price ?? product.base_price)}</p>
           <p className="text-sm leading-relaxed text-ink/80">{product.description || "Aucune description fournie."}</p>
 
@@ -181,6 +230,52 @@ export default function ProductDetailPage() {
           )}
         </div>
       </div>
+
+      <Card className="flex flex-col gap-4">
+        <h2 className="flex items-center gap-2 font-semibold text-ink">
+          <MessageSquare className="h-4 w-4 text-orange" /> Avis clients
+          {reviews && reviews.length > 0 && <span className="text-sm font-normal text-muted-foreground">({reviews.length})</span>}
+        </h2>
+
+        {user && !hasReviewed && (
+          <div className="flex flex-col gap-3 border-b border-border pb-4">
+            <p className="text-sm font-semibold text-ink">Laisser un avis</p>
+            <StarRating value={newRating} onChange={setNewRating} />
+            <Textarea
+              placeholder="Votre avis sur ce produit (optionnel)"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              rows={2}
+            />
+            {reviewError && (
+              <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+                <TriangleAlert className="h-4 w-4 shrink-0" />
+                {reviewError}
+              </div>
+            )}
+            <Button onClick={handleSubmitReview} loading={submittingReview} disabled={newRating === 0} className="self-start">
+              Envoyer mon avis
+            </Button>
+          </div>
+        )}
+
+        {!reviews || reviews.length === 0 ? (
+          <EmptyState icon={MessageSquare} title="Aucun avis pour le moment" description="Soyez le premier à donner votre avis sur ce produit." />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {reviews.map((review) => (
+              <div key={review.id} className="flex flex-col gap-1 border-t border-border pt-4 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-ink">{review.user_name}</p>
+                  <span className="text-xs text-muted-foreground">{formatDate(review.created_at)}</span>
+                </div>
+                <StarRating value={review.rating} size="sm" />
+                {review.comment && <p className="text-sm text-ink/80">{review.comment}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

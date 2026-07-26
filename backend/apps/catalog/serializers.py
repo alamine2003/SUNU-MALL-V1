@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Inventory, Product, ProductImage, ProductVariant, Store, StoreSettings
+from .models import Category, Inventory, Product, ProductImage, ProductVariant, Review, Store, StoreSettings
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -64,6 +64,23 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         variant = super().create(validated_data)
         Inventory.objects.create(variant=variant, quantity=initial_quantity)
         return variant
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "product", "user", "user_name", "rating", "comment", "created_at"]
+        read_only_fields = ["id", "user", "user_name", "created_at"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if request and request.method == "POST":
+            product = attrs.get("product")
+            if product and Review.objects.filter(product=product, user=request.user).exists():
+                raise serializers.ValidationError("Vous avez déjà laissé un avis pour ce produit.")
+        return attrs
 
 
 class ProductSerializer(serializers.ModelSerializer):

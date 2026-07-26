@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { Category, Paginated, Product, ProductImage, ProductVariant, Store } from "@/types";
+import type { Category, Paginated, Product, ProductImage, ProductVariant, Review, Store } from "@/types";
 
 export interface StoreSettings {
   id: string;
@@ -121,4 +121,13 @@ export function uploadProductImage(productId: string, file: File) {
 
 export function deleteProductImage(productId: string, imageId: string) {
   return apiDelete<void>(`/catalog/products/${productId}/images/?image_id=${imageId}`);
+}
+
+export async function listReviews(productId: string) {
+  const data = await apiGet<Paginated<Review>>(`/catalog/reviews/?product=${productId}`);
+  return data.results;
+}
+
+export function createReview(payload: { product: string; rating: number; comment?: string }) {
+  return apiPost<Review>("/catalog/reviews/", payload);
 }

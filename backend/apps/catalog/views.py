@@ -7,10 +7,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.utils import timezone
-from .models import Category, Product, ProductImage, ProductVariant, Store, StoreSettings
+from .models import Category, Product, ProductImage, ProductVariant, Review, Store, StoreSettings
 from .serializers import (
     CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer,
-    StoreSerializer, StoreSettingsSerializer,
+    ReviewSerializer, StoreSerializer, StoreSettingsSerializer,
 )
 from apps.users.permissions import IsAdmin, IsStoreOwnerOrAdmin
 from apps.users.models import Role
@@ -230,3 +230,27 @@ class StoreViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(StoreSettingsSerializer(settings_obj).data)
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    """
+    Avis produits (note 1-5 + commentaire) : lecture publique pour afficher
+    les avis sur la fiche produit, écriture réservée à l'auteur de l'avis
+    (ou à l'admin) — un même utilisateur ne peut laisser qu'un avis par
+    produit (contrainte unique_together côté modèle).
+    """
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["product"]
+
+    def get_queryset(self):
+        if self.action in ["update", "partial_update", "destroy"]:
+            user = self.request.user
+            if user.is_authenticated and user.has_role(Role.RoleName.ADMIN):
+                return Review.objects.all()
+            return Review.objects.filter(user=user)
+        return Review.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

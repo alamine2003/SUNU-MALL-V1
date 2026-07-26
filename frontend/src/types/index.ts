@@ -72,6 +72,16 @@ export interface Product {
   updated_at: string;
 }
 
+export interface Review {
+  id: string;
+  product: string;
+  user: string;
+  user_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 export interface Address {
   id: string;
   user: string;

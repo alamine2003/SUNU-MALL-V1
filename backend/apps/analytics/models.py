@@ -76,8 +76,34 @@ class SalesStatistic(models.Model):
 
     @staticmethod
     def compute_for_store(store, date):
-        # Implement sales computation logic here
-        pass
+        """
+        Agrège les commandes réelles de la boutique pour le jour donné
+        (toutes sauf annulées) et enregistre/actualise la ligne de stats
+        du jour. Idempotent : peut être relancé sans dupliquer (upsert
+        sur la contrainte unique store+date).
+        """
+        from decimal import Decimal
+        from django.db.models import Count, Sum
+        from apps.orders.models import Order
+
+        aggregate = Order.objects.filter(
+            store=store, created_at__date=date,
+        ).exclude(status=Order.Status.CANCELLED).aggregate(
+            total=Sum("total_amount"), count=Count("id"),
+        )
+        total_sales = aggregate["total"] or Decimal("0")
+        total_orders = aggregate["count"] or 0
+        avg_order_value = (total_sales / total_orders) if total_orders else Decimal("0")
+
+        stat, _ = SalesStatistic.objects.update_or_create(
+            store=store, date=date,
+            defaults={
+                "total_sales": total_sales,
+                "total_orders": total_orders,
+                "avg_order_value": avg_order_value,
+            },
+        )
+        return stat
 
     def __str__(self):
         return f"Sales {self.store.name} - {self.date}"
