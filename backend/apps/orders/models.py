@@ -156,6 +156,8 @@ class Order(models.Model):
             new_status=new_status,
             changed_by=self.customer
         )
+        from apps.analytics.models import SalesStatistic
+        SalesStatistic.compute_for_store(self.store, self.created_at.date())
 
     def __str__(self):
         return f"Order {self.id} - {self.customer.email}"

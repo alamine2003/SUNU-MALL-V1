@@ -2,39 +2,23 @@ import { type ComponentType, useMemo } from "react";
 import { ShieldCheck, Store as StoreIcon, Users } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as usersApi from "@/api/users";
-import * as catalogApi from "@/api/catalog";
+import type { DailyCount } from "@/api/users";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { TrendChart } from "@/components/ui/TrendChart";
 
-function lastNDays(n: number) {
-  const days: { key: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    days.push({ key: d.toISOString().slice(0, 10), label: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) });
-  }
-  return days;
-}
-
-function bucketByDay(createdAts: string[]) {
-  const days = lastNDays(14).map((d) => ({ ...d, value: 0 }));
-  const byKey = new Map(days.map((d) => [d.key, d]));
-  for (const createdAt of createdAts) {
-    const bucket = byKey.get(createdAt.slice(0, 10));
-    if (bucket) bucket.value += 1;
-  }
-  return days;
+function toTrendPoints(daily: DailyCount[]) {
+  return daily.map((d) => ({
+    label: new Date(d.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+    value: d.count,
+  }));
 }
 
 export default function AdminDashboardPage() {
   const { data: stats, loading: loadingStats } = useAsync(() => usersApi.getDashboardStats(), []);
-  const { data: users, loading: loadingUsers } = useAsync(() => usersApi.listUsers(), []);
-  const { data: stores, loading: loadingStores } = useAsync(() => catalogApi.listStores(), []);
 
-  const newUsersByDay = useMemo(() => bucketByDay((users ?? []).map((u) => u.created_at)), [users]);
-  const newStoresByDay = useMemo(() => bucketByDay((stores ?? []).map((s) => s.created_at)), [stores]);
+  const newUsersByDay = useMemo(() => toTrendPoints(stats?.trend.new_users ?? []), [stats]);
+  const newStoresByDay = useMemo(() => toTrendPoints(stats?.trend.new_stores ?? []), [stats]);
 
   if (loadingStats) return <Spinner label="Chargement des statistiques…" />;
   if (!stats) return null;
@@ -71,13 +55,13 @@ export default function AdminDashboardPage() {
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
             <Users className="h-4 w-4 text-orange" /> Nouveaux utilisateurs (14 derniers jours)
           </h2>
-          {loadingUsers ? <Spinner /> : <TrendChart data={newUsersByDay} />}
+          <TrendChart data={newUsersByDay} />
         </Card>
         <Card>
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
             <StoreIcon className="h-4 w-4 text-orange" /> Nouvelles boutiques (14 derniers jours)
           </h2>
-          {loadingStores ? <Spinner /> : <TrendChart data={newStoresByDay} />}
+          <TrendChart data={newStoresByDay} />
         </Card>
       </div>
 

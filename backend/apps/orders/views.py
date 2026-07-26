@@ -115,6 +115,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 cart__user=request.user, product_variant_id__in=variant_ids
             ).delete()
 
+        from apps.analytics.models import SalesStatistic
+        SalesStatistic.compute_for_store(store, order.created_at.date())
+
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])

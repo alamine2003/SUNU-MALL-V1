@@ -142,23 +142,35 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         Produits les plus vendus (quantité totale commandée sur des
         commandes non annulées), pour un rail "Meilleures ventes" sur
-        la marketplace. Public, comme `sponsored`.
+        la marketplace. Public, comme `sponsored`. Avec ?store=<id>,
+        restreint le classement aux produits de cette boutique (utilisé
+        par l'onglet Analytics du commerçant pour son propre top produits).
         """
         from apps.orders.models import Order, OrderItem
 
-        top_product_ids = list(
-            OrderItem.objects.exclude(order__status=Order.Status.CANCELLED)
+        items = OrderItem.objects.exclude(order__status=Order.Status.CANCELLED)
+        store_id = request.query_params.get("store")
+        if store_id:
+            items = items.filter(product_variant__product__store_id=store_id)
+
+        ranking = list(
+            items
             .values("product_variant__product_id")
             .annotate(total_qty=models.Sum("quantity"))
-            .order_by("-total_qty")
-            .values_list("product_variant__product_id", flat=True)[:12]
+            .order_by("-total_qty")[:12]
         )
+        qty_by_id = {str(row["product_variant__product_id"]): row["total_qty"] for row in ranking}
+        top_product_ids = [row["product_variant__product_id"] for row in ranking]
+
         # `filter(id__in=...)` ne préserve pas l'ordre de popularité : on le
         # ré-applique nous-mêmes après coup.
         products_by_id = {p.id: p for p in self.get_queryset().filter(id__in=top_product_ids)}
         ordered = [products_by_id[pid] for pid in top_product_ids if pid in products_by_id]
         serializer = self.get_serializer(ordered, many=True)
-        return Response(serializer.data)
+        data = serializer.data
+        for item in data:
+            item["sold_quantity"] = qty_by_id.get(item["id"])
+        return Response(data)
 
 class ProductVariantViewSet(viewsets.ModelViewSet):
     """

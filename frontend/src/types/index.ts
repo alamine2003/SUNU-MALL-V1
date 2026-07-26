@@ -73,6 +73,8 @@ export interface Product {
   variants: ProductVariant[];
   created_at: string;
   updated_at: string;
+  /** Présent uniquement sur la réponse de `best_sellers` : quantité totale vendue. */
+  sold_quantity?: number;
 }
 
 export interface Review {
@@ -198,6 +200,16 @@ export interface CheckoutPayload {
   delivery_type: "pickup" | "standard" | "express";
   payment_method: "wave" | "orange_money" | "card";
   items: { product_variant: string; quantity: number }[];
+}
+
+export interface SalesStatistic {
+  id: string;
+  store: string;
+  date: string;
+  total_sales: string;
+  total_orders: number;
+  avg_order_value: string;
+  created_at: string;
 }
 
 export interface Notification {

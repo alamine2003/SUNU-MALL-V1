@@ -122,8 +122,9 @@ export function listSponsoredProducts() {
   return apiGet<Product[]>("/catalog/products/sponsored/");
 }
 
-export function listBestSellers() {
-  return apiGet<Product[]>("/catalog/products/best_sellers/");
+export function listBestSellers(params?: { store?: string }) {
+  const qs = params?.store ? `?store=${params.store}` : "";
+  return apiGet<Product[]>(`/catalog/products/best_sellers/${qs}`);
 }
 
 export function createProduct(payload: {

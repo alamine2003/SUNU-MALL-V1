@@ -15,9 +15,15 @@ export interface AdminUser {
   permissions: string[];
 }
 
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
 export interface DashboardStats {
   users: { total: number; active: number; unverified: number };
   stores: { total: number; active: number; pending_review: number; suspended: number };
+  trend: { new_users: DailyCount[]; new_stores: DailyCount[] };
 }
 
 export interface Role {

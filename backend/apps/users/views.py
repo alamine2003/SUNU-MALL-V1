@@ -1,3 +1,7 @@
+from datetime import timedelta
+from django.db import models
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +12,31 @@ from .serializers import (
 )
 from .permissions import IsAdmin
 from apps.catalog.models import Store
+
+
+def _daily_counts(queryset, days=14):
+    """
+    Nombre de lignes par jour sur les `days` derniers jours, agrégé en
+    base (TruncDate + Count) — pas de pagination à contourner, pas de
+    liste tronquée récupérée côté client pour la re-découper en tas.
+    """
+    today = timezone.now().date()
+    start = today - timedelta(days=days - 1)
+    counts_by_date = {
+        row["day"]: row["count"]
+        for row in (
+            queryset.filter(created_at__date__gte=start)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=models.Count("id"))
+            .values("day", "count")
+        )
+    }
+    result = []
+    for i in range(days):
+        day = start + timedelta(days=i)
+        result.append({"date": day.isoformat(), "count": counts_by_date.get(day, 0)})
+    return result
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -54,6 +83,10 @@ class UserViewSet(viewsets.ModelViewSet):
                 "active": stores_active,
                 "pending_review": stores_pending_review,
                 "suspended": stores_suspended,
+            },
+            "trend": {
+                "new_users": _daily_counts(User.objects.all()),
+                "new_stores": _daily_counts(Store.objects.all()),
             },
         })
 
