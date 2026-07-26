@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 
@@ -51,13 +52,17 @@ export function DashboardShell({ nav, title }: { nav: DashboardNavItem[]; title:
       <div className="flex flex-col md:pl-64">
         <header className="flex items-center justify-between border-b border-border bg-white px-6 py-4 md:hidden">
           <Logo to={nav[0]?.to ?? "/"} />
-          <button onClick={logout} className="text-sm text-muted-foreground">
-            Déconnexion
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button onClick={logout} className="text-sm text-muted-foreground">
+              Déconnexion
+            </button>
+          </div>
         </header>
         <header className="hidden items-center justify-between gap-4 border-b border-border bg-white px-6 py-4 md:flex">
           <h1 className="font-display text-lg font-bold text-gray-800">{activeLabel}</h1>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="text-right">
               <p className="text-sm font-semibold leading-tight text-gray-800">
                 {user?.first_name} {user?.last_name}

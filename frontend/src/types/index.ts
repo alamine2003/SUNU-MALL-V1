@@ -206,6 +206,7 @@ export interface Notification {
   subject: string;
   message: string;
   status: string;
+  is_read: boolean;
   sent_at: string | null;
   created_at: string;
 }

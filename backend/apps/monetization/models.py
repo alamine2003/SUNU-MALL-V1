@@ -25,6 +25,7 @@ class Notification(models.Model):
     subject = models.CharField(max_length=255)
     message = models.TextField(blank=True)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
+    is_read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(null=True, blank=True)
     metadata = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roleHomePath } from "./roles";
+import { roleHomePath, roleNotificationsPath } from "./roles";
 
 describe("roleHomePath", () => {
   it("sends an admin to /admin regardless of other roles", () => {
@@ -25,5 +25,24 @@ describe("roleHomePath", () => {
   it("defaults a plain client (or no roles) to /home", () => {
     expect(roleHomePath(["client"])).toBe("/home");
     expect(roleHomePath([])).toBe("/home");
+  });
+});
+
+describe("roleNotificationsPath", () => {
+  it("sends an admin to /admin-notifications regardless of other roles", () => {
+    expect(roleNotificationsPath(["driver", "merchant", "admin"])).toBe("/admin-notifications");
+  });
+
+  it("sends a merchant to /merchant-notifications", () => {
+    expect(roleNotificationsPath(["merchant"])).toBe("/merchant-notifications");
+  });
+
+  it("sends a driver to /driver-notifications", () => {
+    expect(roleNotificationsPath(["driver"])).toBe("/driver-notifications");
+  });
+
+  it("defaults a plain client (or no roles) to /notifications", () => {
+    expect(roleNotificationsPath(["client"])).toBe("/notifications");
+    expect(roleNotificationsPath([])).toBe("/notifications");
   });
 });

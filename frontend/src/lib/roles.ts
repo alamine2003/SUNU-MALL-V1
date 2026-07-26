@@ -6,3 +6,10 @@ export function roleHomePath(roles: Role[]): string {
   if (roles.includes("driver")) return "/driver-dashboard";
   return "/home";
 }
+
+export function roleNotificationsPath(roles: Role[]): string {
+  if (roles.includes("admin")) return "/admin-notifications";
+  if (roles.includes("merchant")) return "/merchant-notifications";
+  if (roles.includes("driver")) return "/driver-notifications";
+  return "/notifications";
+}

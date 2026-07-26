@@ -6,6 +6,14 @@ export async function listNotifications() {
   return data.results;
 }
 
+export function markNotificationRead(id: string) {
+  return apiPost<Notification>(`/monetization/notifications/${id}/read/`);
+}
+
+export function markAllNotificationsRead() {
+  return apiPost<void>("/monetization/notifications/read-all/");
+}
+
 export async function listSubscriptionPlans() {
   const data = await apiGet<Paginated<SubscriptionPlan>>("/monetization/subscription-plans/");
   return data.results;

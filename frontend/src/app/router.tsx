@@ -23,6 +23,7 @@ import CategoryIndexPage from "@/pages/category";
 import CategoryDetailPage from "@/pages/category-detail";
 import WishlistPage from "@/pages/wishlist";
 import RecentlyViewedPage from "@/pages/recently-viewed";
+import NotificationsPage from "@/pages/notifications";
 
 import CartPage from "@/pages/cart";
 import CheckoutAddressPage from "@/pages/checkout-address";
@@ -30,7 +31,6 @@ import CheckoutDeliveryPage from "@/pages/checkout-delivery";
 import CheckoutPaymentPage from "@/pages/checkout-payment";
 import OrderConfirmedPage from "@/pages/order-confirmed";
 import OrdersPage from "@/pages/orders";
-import NotificationsPage from "@/pages/notifications";
 import TrackingPage from "@/pages/tracking";
 import DeliveryConfirmPage from "@/pages/delivery-confirm";
 
@@ -82,6 +82,7 @@ export const router = createBrowserRouter([
       { path: "/category/:slug", element: <CategoryDetailPage /> },
       { path: "/wishlist", element: <WishlistPage /> },
       { path: "/recently-viewed", element: <RecentlyViewedPage /> },
+      { path: "/notifications", element: <NotificationsPage /> },
     ],
   },
 
@@ -94,7 +95,6 @@ export const router = createBrowserRouter([
       { path: "/checkout-payment", element: <CheckoutPaymentPage /> },
       { path: "/order-confirmed", element: <OrderConfirmedPage /> },
       { path: "/orders", element: <OrdersPage /> },
-      { path: "/notifications", element: <NotificationsPage /> },
       { path: "/tracking", element: <TrackingPage /> },
       { path: "/delivery-confirm", element: <DeliveryConfirmPage /> },
     ],
@@ -112,6 +112,7 @@ export const router = createBrowserRouter([
       { path: "/analytics", element: <AnalyticsPage /> },
       { path: "/live-sales", element: <LiveSalesPage /> },
       { path: "/order-detail", element: <OrderDetailPage /> },
+      { path: "/merchant-notifications", element: <NotificationsPage /> },
     ],
   },
 
@@ -121,6 +122,7 @@ export const router = createBrowserRouter([
       { path: "/driver-dashboard", element: <DriverDashboardPage /> },
       { path: "/driver-delivery", element: <DriverDeliveryPage /> },
       { path: "/driver-profile", element: <DriverProfilePage /> },
+      { path: "/driver-notifications", element: <NotificationsPage /> },
     ],
   },
 
@@ -134,6 +136,7 @@ export const router = createBrowserRouter([
       { path: "/admin-orders", element: <AdminOrdersPage /> },
       { path: "/admin-payments", element: <AdminPaymentsPage /> },
       { path: "/admin-order-detail", element: <OrderDetailPage /> },
+      { path: "/admin-notifications", element: <NotificationsPage /> },
     ],
   },
 
