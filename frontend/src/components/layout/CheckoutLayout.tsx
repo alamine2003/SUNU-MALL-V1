@@ -58,15 +58,22 @@ function CheckoutStepper({ pathname }: { pathname: string }) {
 export function CheckoutLayout() {
   const { pathname } = useLocation();
 
-  return (
-    <RoleGuard roles={["client"]}>
-      <div className="min-h-screen bg-white">
-        <MarketHeader />
-        <CheckoutStepper pathname={pathname} />
-        <main className="mx-auto max-w-4xl px-4 py-6">
-          <Outlet />
-        </main>
-      </div>
-    </RoleGuard>
+  const content = (
+    <div className="min-h-screen bg-white">
+      <MarketHeader />
+      <CheckoutStepper pathname={pathname} />
+      <main className="mx-auto max-w-4xl px-4 py-6">
+        <Outlet />
+      </main>
+    </div>
   );
+
+  // Le panier reste consultable sans compte (guest checkout) : un visiteur
+  // anonyme n'a jamais d'article dedans de toute façon (l'ajout au panier
+  // exige déjà un compte, créé silencieusement via GuestCheckoutModal), donc
+  // pas de mur de connexion utile ici — juste un panier vide accueillant.
+  // Les étapes suivantes (adresse, livraison, paiement…) restent protégées.
+  if (pathname === "/cart") return content;
+
+  return <RoleGuard roles={["client"]}>{content}</RoleGuard>;
 }

@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { QuantityStepper } from "@/components/marketplace/QuantityStepper";
 import { useCheckoutStore } from "@/store/checkoutStore";
+import { useAuthStore } from "@/store/authStore";
 import { formatPrice } from "@/lib/utils";
 import type { CartItem as ApiCartItem, Store } from "@/types";
 
@@ -25,7 +26,8 @@ function groupByStore(items: ApiCartItem[]) {
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { data: cart, loading, refetch } = useAsync(() => shoppingApi.getCart(), []);
+  const user = useAuthStore((s) => s.user);
+  const { data: cart, loading, refetch } = useAsync(() => (user ? shoppingApi.getCart() : Promise.resolve(null)), [user?.id]);
   const startCheckout = useCheckoutStore((s) => s.startCheckout);
 
   const groups = useMemo(() => groupByStore(cart?.items ?? []), [cart]);
