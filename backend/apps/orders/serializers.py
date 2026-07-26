@@ -75,18 +75,23 @@ class OrderSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store.name", read_only=True)
     address_detail = AddressSerializer(source="address", read_only=True)
     payment = serializers.SerializerMethodField()
+    customer_email = serializers.EmailField(source="customer.email", read_only=True)
+    customer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
-            "id", "customer", "store", "store_name", "address", "address_detail",
+            "id", "customer", "customer_name", "customer_email", "store", "store_name", "address", "address_detail",
             "total_amount", "delivery_fee", "status", "items", "delivery", "payment",
             "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "customer", "store_name", "address_detail",
+            "id", "customer", "customer_name", "customer_email", "store_name", "address_detail",
             "total_amount", "status", "items", "delivery", "payment", "created_at", "updated_at",
         ]
+
+    def get_customer_name(self, obj):
+        return obj.customer.get_full_name() or obj.customer.email
 
     def get_payment(self, obj):
         payment = getattr(obj, "payment", None)

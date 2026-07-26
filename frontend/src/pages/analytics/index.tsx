@@ -5,7 +5,19 @@ import * as ordersApi from "@/api/orders";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TrendChart } from "@/components/ui/TrendChart";
 import { formatPrice } from "@/lib/utils";
+
+function lastNDays(n: number) {
+  const days: { key: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    days.push({ key: d.toISOString().slice(0, 10), label: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) });
+  }
+  return days;
+}
 
 export default function AnalyticsPage() {
   const { data: orders, loading } = useAsync(() => ordersApi.listOrders(), []);
@@ -22,7 +34,15 @@ export default function AnalyticsPage() {
     const topProducts = Array.from(productCounts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
-    return { revenue, orderCount: orders.length, topProducts };
+
+    const days = lastNDays(14).map((d) => ({ ...d, value: 0 }));
+    const byKey = new Map(days.map((d) => [d.key, d]));
+    for (const order of orders) {
+      const bucket = byKey.get(order.created_at.slice(0, 10));
+      if (bucket) bucket.value += parseFloat(order.total_amount);
+    }
+
+    return { revenue, orderCount: orders.length, topProducts, revenueByDay: days };
   }, [orders]);
 
   if (loading) return <Spinner label="Chargement des statistiques…" />;
@@ -54,6 +74,17 @@ export default function AnalyticsPage() {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
+          <Wallet className="h-4 w-4 text-orange" /> Chiffre d'affaires (14 derniers jours)
+        </h2>
+        {stats.revenue === 0 ? (
+          <EmptyState icon={Wallet} title="Pas encore de ventes" description="L'évolution de votre chiffre d'affaires apparaîtra ici." />
+        ) : (
+          <TrendChart data={stats.revenueByDay} valueFormatter={formatPrice} />
+        )}
+      </Card>
 
       <Card>
         <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">

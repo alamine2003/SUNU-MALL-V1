@@ -97,13 +97,18 @@ export default function DriverDashboardPage() {
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted-foreground">Historique</h2>
               <div className="flex flex-col gap-3">
                 {history.map((delivery) => (
-                  <Card key={delivery.id} className="flex items-center justify-between opacity-70">
-                    <div>
-                      <p className="text-xs text-muted-foreground">{formatDate(delivery.created_at)}</p>
-                      <p className="font-medium text-ink">Commande n°{delivery.order.slice(0, 8)}</p>
-                    </div>
-                    <Badge variant={STATUS_VARIANT[delivery.status]}>{STATUS_LABEL[delivery.status]}</Badge>
-                  </Card>
+                  <Link key={delivery.id} to={`/driver-delivery?delivery=${delivery.id}`}>
+                    <Card variant="interactive" className="flex items-center justify-between opacity-70">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{formatDate(delivery.created_at)}</p>
+                        <p className="font-medium text-ink">Commande n°{delivery.order.slice(0, 8)}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={STATUS_VARIANT[delivery.status]}>{STATUS_LABEL[delivery.status]}</Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             </div>

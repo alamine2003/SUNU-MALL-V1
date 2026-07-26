@@ -22,6 +22,12 @@ export async function listOrders() {
   return data.results;
 }
 
+/** Comme `listOrders`, mais renvoie l'enveloppe de pagination DRF complète, pour la vue d'ensemble admin. */
+export function listOrdersPaginated(params?: { page?: number }) {
+  const qs = params?.page ? `?page=${params.page}` : "";
+  return apiGet<Paginated<Order>>(`/orders/${qs}`);
+}
+
 export function getOrder(id: string) {
   return apiGet<Order>(`/orders/${id}/`);
 }

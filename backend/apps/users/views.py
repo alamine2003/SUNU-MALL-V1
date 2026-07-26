@@ -14,9 +14,15 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     CRUD sur les utilisateurs. Seul l'admin peut modifier/supprimer.
     """
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = User.objects.all().order_by("-created_at")
+        role = self.request.query_params.get("role")
+        if role:
+            queryset = queryset.filter(user_roles__role__name=role)
+        return queryset
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

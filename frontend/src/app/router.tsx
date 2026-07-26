@@ -35,19 +35,24 @@ import DeliveryConfirmPage from "@/pages/delivery-confirm";
 
 import MerchantDashboardPage from "@/pages/merchant";
 import CreateShopPage from "@/pages/create-shop";
+import StoreSettingsPage from "@/pages/store-settings";
 import AddProductPage from "@/pages/add-product";
 import CatalogPage from "@/pages/catalog";
 import SubscriptionsPage from "@/pages/subscriptions";
 import AnalyticsPage from "@/pages/analytics";
 import LiveSalesPage from "@/pages/live-sales";
+import OrderDetailPage from "@/pages/order-detail";
 
 import DriverDashboardPage from "@/pages/driver-dashboard";
 import DriverDeliveryPage from "@/pages/driver-delivery";
+import DriverProfilePage from "@/pages/driver-profile";
 
 import AdminDashboardPage from "@/pages/admin";
 import AdminUsersPage from "@/pages/admin-users";
 import AdminManagersPage from "@/pages/admin-managers";
 import AdminShopsPage from "@/pages/admin-shops";
+import AdminOrdersPage from "@/pages/admin-orders";
+import AdminPaymentsPage from "@/pages/admin-payments";
 
 export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/home" replace /> },
@@ -98,11 +103,13 @@ export const router = createBrowserRouter([
     children: [
       { path: "/merchant", element: <MerchantDashboardPage /> },
       { path: "/create-shop", element: <CreateShopPage /> },
+      { path: "/store-settings", element: <StoreSettingsPage /> },
       { path: "/add-product", element: <AddProductPage /> },
       { path: "/catalog", element: <CatalogPage /> },
       { path: "/subscriptions", element: <SubscriptionsPage /> },
       { path: "/analytics", element: <AnalyticsPage /> },
       { path: "/live-sales", element: <LiveSalesPage /> },
+      { path: "/order-detail", element: <OrderDetailPage /> },
     ],
   },
 
@@ -111,6 +118,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "/driver-dashboard", element: <DriverDashboardPage /> },
       { path: "/driver-delivery", element: <DriverDeliveryPage /> },
+      { path: "/driver-profile", element: <DriverProfilePage /> },
     ],
   },
 
@@ -121,6 +129,9 @@ export const router = createBrowserRouter([
       { path: "/admin-users", element: <AdminUsersPage /> },
       { path: "/admin-managers", element: <AdminManagersPage /> },
       { path: "/admin-shops", element: <AdminShopsPage /> },
+      { path: "/admin-orders", element: <AdminOrdersPage /> },
+      { path: "/admin-payments", element: <AdminPaymentsPage /> },
+      { path: "/admin-order-detail", element: <OrderDetailPage /> },
     ],
   },
 

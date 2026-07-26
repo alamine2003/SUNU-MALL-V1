@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, ShoppingBag, Store as StoreIcon, Wallet } from "lucide-react";
+import { ChevronRight, Package, ShoppingBag, Store as StoreIcon, Wallet } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as ordersApi from "@/api/orders";
@@ -136,6 +136,13 @@ export default function MerchantDashboardPage() {
                 ) : (
                   order.delivery && <Badge variant="default">Livraison : {order.delivery.status}</Badge>
                 )}
+                <Link
+                  to={`/order-detail?order=${order.id}`}
+                  aria-label="Voir le détail de la commande"
+                  className="focus-ring rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-orange"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
               </div>
             ))}
           </div>

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Inventory, Product, ProductImage, ProductVariant, Store
+from .models import Category, Inventory, Product, ProductImage, ProductVariant, Store, StoreSettings
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -30,6 +30,13 @@ class StoreSerializer(serializers.ModelSerializer):
             "status", "created_at", "updated_at"
         ]
         read_only_fields = ["id", "owner", "created_at", "updated_at", "owner_email"]
+
+
+class StoreSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoreSettings
+        fields = ["id", "store", "business_hours", "min_order_amount", "created_at", "updated_at"]
+        read_only_fields = ["id", "store", "created_at", "updated_at"]
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):

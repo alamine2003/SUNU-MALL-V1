@@ -1,6 +1,15 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { Category, Paginated, Product, ProductImage, ProductVariant, Store } from "@/types";
 
+export interface StoreSettings {
+  id: string;
+  store: string;
+  business_hours: Record<string, unknown>;
+  min_order_amount: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function listStores(params?: { search?: string }) {
   const qs = params?.search ? `?search=${encodeURIComponent(params.search)}` : "";
   const data = await apiGet<Paginated<Store>>(`/catalog/stores/${qs}`);
@@ -21,6 +30,14 @@ export function approveStore(id: string) {
 
 export function rejectStore(id: string, reason?: string) {
   return apiPost<Store>(`/catalog/stores/${id}/reject/`, { reason });
+}
+
+export function getStoreSettings(storeId: string) {
+  return apiGet<StoreSettings>(`/catalog/stores/${storeId}/settings/`);
+}
+
+export function updateStoreSettings(storeId: string, payload: { business_hours?: Record<string, unknown>; min_order_amount?: number }) {
+  return apiPatch<StoreSettings>(`/catalog/stores/${storeId}/settings/`, payload);
 }
 
 export async function listCategories() {
@@ -50,9 +67,10 @@ export async function searchProducts(params?: { search?: string; store?: string;
 }
 
 /** Comme `listStores`, mais renvoie l'enveloppe de pagination DRF complète, pour l'annuaire public des boutiques. */
-export async function listStoresPaginated(params?: { search?: string; page?: number }) {
+export async function listStoresPaginated(params?: { search?: string; status?: string; page?: number }) {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
   if (params?.page) qs.set("page", String(params.page));
   const query = qs.toString();
   return apiGet<Paginated<Store>>(`/catalog/stores/${query ? `?${query}` : ""}`);

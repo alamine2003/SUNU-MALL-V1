@@ -162,6 +162,8 @@ export type OrderStatus = "pending" | "paid" | "processing" | "shipped" | "deliv
 export interface Order {
   id: string;
   customer: string;
+  customer_name: string;
+  customer_email: string;
   store: string;
   store_name: string;
   address: string;

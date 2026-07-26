@@ -1,5 +1,10 @@
-import { apiPost } from "@/lib/api";
-import type { Payment } from "@/types";
+import { apiGet, apiPost } from "@/lib/api";
+import type { Paginated, Payment } from "@/types";
+
+export function listPayments(params?: { page?: number }) {
+  const qs = params?.page ? `?page=${params.page}` : "";
+  return apiGet<Paginated<Payment>>(`/payments/${qs}`);
+}
 
 export interface InitiatePaymentResult {
   sandbox: boolean;

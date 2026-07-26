@@ -39,6 +39,14 @@ export async function listUsers() {
   return data.results;
 }
 
+export function listUsersPaginated(params?: { role?: string; page?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.role) qs.set("role", params.role);
+  if (params?.page) qs.set("page", String(params.page));
+  const query = qs.toString();
+  return apiGet<Paginated<AdminUser>>(`/users/${query ? `?${query}` : ""}`);
+}
+
 export function setUserActive(id: string, isActive: boolean) {
   return apiPatch<AdminUser>(`/users/${id}/`, { is_active: isActive });
 }
@@ -55,6 +63,19 @@ export async function listRoles() {
 export async function listUserRoles() {
   const data = await apiGet<Paginated<UserRoleAssignment>>("/users/user-roles/");
   return data.results;
+}
+
+/** Récupère toutes les pages : nécessaire pour calculer correctement les rôles affichés quel que soit le nombre total d'attributions. */
+export async function listAllUserRoles() {
+  const all: UserRoleAssignment[] = [];
+  let page = 1;
+  for (;;) {
+    const data = await apiGet<Paginated<UserRoleAssignment>>(`/users/user-roles/?page=${page}`);
+    all.push(...data.results);
+    if (!data.next) break;
+    page += 1;
+  }
+  return all;
 }
 
 export function assignRole(userId: string, roleId: number) {

@@ -7,8 +7,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.utils import timezone
-from .models import Category, Product, ProductImage, ProductVariant, Store
-from .serializers import CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer, StoreSerializer
+from .models import Category, Product, ProductImage, ProductVariant, Store, StoreSettings
+from .serializers import (
+    CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer,
+    StoreSerializer, StoreSettingsSerializer,
+)
 from apps.users.permissions import IsAdmin, IsStoreOwnerOrAdmin
 from apps.users.models import Role
 from apps.monetization.models import Notification, SponsoredProduct
@@ -137,6 +140,8 @@ class StoreViewSet(viewsets.ModelViewSet):
     """
     serializer_class = StoreSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status"]
 
     def get_permissions(self):
         if self.action in ["approve", "reject"]:
@@ -205,3 +210,23 @@ class StoreViewSet(viewsets.ModelViewSet):
         self._notify_owner(store, subject, message)
         serializer = self.get_serializer(store)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get", "patch"], url_path="settings")
+    def settings_endpoint(self, request, pk=None):
+        """
+        Paramètres de la boutique (horaires, montant minimum de commande),
+        créés à la volée s'ils n'existent pas encore. Réservé au
+        propriétaire de la boutique (ou à l'admin) — une boutique active
+        reste visible en lecture publique via `get_queryset`, mais ses
+        paramètres ne doivent être modifiables que par son propriétaire.
+        """
+        store = self.get_object()
+        if not request.user.has_role(Role.RoleName.ADMIN) and store.owner_id != request.user.id:
+            raise PermissionDenied("Vous ne pouvez consulter/modifier que les paramètres de votre propre boutique.")
+        settings_obj, _ = StoreSettings.objects.get_or_create(store=store)
+        if request.method == "PATCH":
+            serializer = StoreSettingsSerializer(settings_obj, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        return Response(StoreSettingsSerializer(settings_obj).data)

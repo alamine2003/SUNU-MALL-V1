@@ -1,10 +1,11 @@
-import { BarChart3, LayoutDashboard, Megaphone, Package, PlusCircle, Radio, Store as StoreIcon } from "lucide-react";
+import { BarChart3, LayoutDashboard, Megaphone, Package, PlusCircle, Radio, Settings, Store as StoreIcon } from "lucide-react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DashboardShell, type DashboardNavItem } from "@/components/layout/DashboardShell";
 
 const nav: DashboardNavItem[] = [
   { to: "/merchant", label: "Tableau de bord", icon: <LayoutDashboard className="h-4 w-4" /> },
   { to: "/create-shop", label: "Ma boutique", icon: <StoreIcon className="h-4 w-4" /> },
+  { to: "/store-settings", label: "Paramètres", icon: <Settings className="h-4 w-4" /> },
   { to: "/catalog", label: "Catalogue", icon: <Package className="h-4 w-4" /> },
   { to: "/add-product", label: "Ajouter un produit", icon: <PlusCircle className="h-4 w-4" /> },
   { to: "/subscriptions", label: "Abonnements", icon: <Megaphone className="h-4 w-4" /> },
