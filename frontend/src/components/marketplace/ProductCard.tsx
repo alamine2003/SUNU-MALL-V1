@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Heart, ImageOff, Loader2, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { useAuthStore } from "@/store/authStore";
+import { useGuestCheckoutStore } from "@/store/guestCheckoutStore";
 import * as shoppingApi from "@/api/shopping";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { formatPrice } from "@/lib/utils";
 export function ProductCard({ product, sponsored }: { product: Product; sponsored?: boolean }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const openGuestCheckout = useGuestCheckoutStore((s) => s.open);
   const [adding, setAdding] = useState(false);
   const [fav, setFav] = useState(false);
   const image = product.images[0]?.url;
@@ -21,12 +23,7 @@ export function ProductCard({ product, sponsored }: { product: Product; sponsore
   const priceLabel = variants.length > 1 ? `À partir de ${formatPrice(minPrice)}` : formatPrice(minPrice);
   const isAvailable = defaultVariant ? defaultVariant.is_available : false;
 
-  async function handleAddToCart(e: React.MouseEvent) {
-    e.preventDefault();
-    if (!user) {
-      navigate(`/login?next=/product/${product.id}`);
-      return;
-    }
+  async function addToCart() {
     if (!defaultVariant) return;
     setAdding(true);
     try {
@@ -34,6 +31,15 @@ export function ProductCard({ product, sponsored }: { product: Product; sponsore
     } finally {
       setAdding(false);
     }
+  }
+
+  function handleAddToCart(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!user) {
+      openGuestCheckout(addToCart);
+      return;
+    }
+    addToCart();
   }
 
   async function handleToggleFavorite(e: React.MouseEvent) {

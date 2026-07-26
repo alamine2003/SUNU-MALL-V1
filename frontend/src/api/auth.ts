@@ -27,6 +27,14 @@ export function resendVerification(email: string) {
   return apiPost<{ message: string }>("/auth/resend-verification/", { email }, { auth: false });
 }
 
+export function guestCheckout(payload: { email: string; first_name: string; last_name?: string; phone: string }) {
+  return apiPost<AuthResponse>("/auth/guest-checkout/", payload, { auth: false });
+}
+
+export function setPassword(password: string) {
+  return apiPost<{ message: string }>("/auth/set-password/", { password });
+}
+
 export function verifyEmail(uid: string, token: string) {
   return apiGet<{ message: string }>(
     `/auth/verify-email/?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`,

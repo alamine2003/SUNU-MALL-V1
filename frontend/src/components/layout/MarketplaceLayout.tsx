@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { MarketHeader } from "@/components/layout/MarketHeader";
 import { Footer } from "@/components/layout/Footer";
+import { GuestCheckoutModal } from "@/components/auth/GuestCheckoutModal";
 
 export function MarketplaceLayout() {
   return (
@@ -10,6 +11,7 @@ export function MarketplaceLayout() {
         <Outlet />
       </main>
       <Footer />
+      <GuestCheckoutModal />
     </div>
   );
 }

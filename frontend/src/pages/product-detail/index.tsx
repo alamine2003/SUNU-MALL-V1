@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StarRating } from "@/components/ui/StarRating";
 import { QuantityStepper } from "@/components/marketplace/QuantityStepper";
 import { useAuthStore } from "@/store/authStore";
+import { useGuestCheckoutStore } from "@/store/guestCheckoutStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { ApiError } from "@/lib/api";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
@@ -21,6 +22,7 @@ export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const openGuestCheckout = useGuestCheckoutStore((s) => s.open);
   const addRecentlyViewed = useRecentlyViewedStore((s) => s.addProduct);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
@@ -63,11 +65,7 @@ export default function ProductDetailPage() {
   const averageRating = reviews && reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
   const hasReviewed = !!user && !!reviews?.some((r) => r.user === user.id);
 
-  async function handleAddToCart() {
-    if (!user) {
-      navigate(`/login?next=/product/${id}`);
-      return;
-    }
+  async function addToCart() {
     if (!variant) return;
     setAdding(true);
     setFeedback(null);
@@ -79,6 +77,14 @@ export default function ProductDetailPage() {
     } finally {
       setAdding(false);
     }
+  }
+
+  function handleAddToCart() {
+    if (!user) {
+      openGuestCheckout(addToCart);
+      return;
+    }
+    addToCart();
   }
 
   async function handleAddToWishlist() {

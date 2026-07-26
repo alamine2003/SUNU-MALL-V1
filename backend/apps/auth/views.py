@@ -11,7 +11,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.core.exceptions import ValidationError
-from .serializers import RegisterSerializer, LoginSerializer, ResendVerificationSerializer
+from .serializers import (
+    RegisterSerializer, LoginSerializer, ResendVerificationSerializer,
+    GuestCheckoutSerializer, SetPasswordSerializer,
+)
 from .utils import email_verification_token, send_verification_email
 from apps.users.models import User
 
@@ -87,7 +90,8 @@ class RegisterView(generics.CreateAPIView):
                 "last_name": user.last_name,
                 "phone": user.phone,
                 "roles": roles,
-                "is_verified": user.is_verified
+                "is_verified": user.is_verified,
+                "has_password": True,
             },
             "access": None,
             "refresh": None,
@@ -124,7 +128,8 @@ class LoginView(generics.GenericAPIView):
                 "last_name": user.last_name,
                 "phone": user.phone,
                 "roles": roles,
-                "is_verified": user.is_verified
+                "is_verified": user.is_verified,
+                "has_password": True,
             },
             "access": str(refresh.access_token),
             "refresh": str(refresh)
@@ -193,3 +198,53 @@ class ResendVerificationEmailView(generics.GenericAPIView):
         return Response({
             "message": "Si cet email est associé à un compte, un email de vérification a été envoyé."
         }, status=status.HTTP_200_OK)
+
+
+class GuestCheckoutView(generics.GenericAPIView):
+    """
+    Point d'entrée "achat sans compte" : crée un compte client sans mot de
+    passe à partir des seules infos de contact et retourne directement des
+    JWT, sans passer par la vérification d'email exigée par /login/. Le
+    client ne voit jamais de formulaire d'inscription avant de payer.
+    """
+    serializer_class = GuestCheckoutSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        refresh = RefreshToken.for_user(user)
+        roles = [ur.role.name for ur in user.user_roles.select_related('role')]
+
+        return Response({
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "phone": user.phone,
+                "roles": roles,
+                "is_verified": user.is_verified,
+                "has_password": user.has_usable_password(),
+            },
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        })
+
+
+class SetPasswordView(generics.GenericAPIView):
+    """Convertit le compte invité de l'utilisateur connecté en compte complet (avec mot de passe)."""
+    serializer_class = SetPasswordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data['password'])
+        request.user.save()
+        send_verification_email(request.user)
+        return Response({
+            "message": "Mot de passe défini. Vérifiez votre email pour activer toutes les fonctionnalités.",
+        })

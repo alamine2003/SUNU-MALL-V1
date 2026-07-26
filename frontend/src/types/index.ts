@@ -16,6 +16,8 @@ export interface AuthUser {
   phone: string;
   roles: Role[];
   is_verified: boolean;
+  /** false pour un compte invité (créé via guest-checkout, sans mot de passe défini). */
+  has_password: boolean;
 }
 
 export interface Category {
