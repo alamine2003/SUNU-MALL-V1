@@ -197,7 +197,7 @@ class StoreViewSet(viewsets.ModelViewSet):
     serializer_class = StoreSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["status"]
+    filterset_fields = ["status", "owner"]
 
     def get_permissions(self):
         if self.action in ["approve", "reject"]:

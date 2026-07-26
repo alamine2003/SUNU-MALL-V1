@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
@@ -7,9 +8,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { Pagination } from "@/components/ui/Pagination";
+
+const PAGE_SIZE = 20;
 
 export default function CategoryDetailPage() {
   const { slug: categoryId } = useParams<{ slug: string }>();
+  const [page, setPage] = useState(1);
 
   const { data: category } = useAsync(async () => {
     const categories = await catalogApi.listCategories();
@@ -17,11 +22,14 @@ export default function CategoryDetailPage() {
   }, [categoryId]);
 
   const {
-    data: products,
+    data: result,
     loading,
     error,
     refetch,
-  } = useAsync(() => catalogApi.listProducts({ category: categoryId }), [categoryId]);
+  } = useAsync(() => catalogApi.searchProducts({ category: categoryId, page }), [categoryId, page]);
+
+  const products = result?.results ?? [];
+  const totalPages = result ? Math.max(1, Math.ceil(result.count / PAGE_SIZE)) : 1;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -35,14 +43,17 @@ export default function CategoryDetailPage() {
         </div>
       ) : error ? (
         <ErrorState fullPage onRetry={refetch} />
-      ) : products?.length === 0 ? (
+      ) : products.length === 0 ? (
         <EmptyState icon={PackageSearch} title="Aucun produit dans cette catégorie" description="Revenez plus tard, de nouveaux produits arrivent régulièrement." />
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {products?.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+        </>
       )}
     </div>
   );

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SponsorProductModal } from "@/components/merchant/SponsorProductModal";
-import { myStores } from "@/lib/merchant";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
 
@@ -21,9 +20,8 @@ const STATUS_VARIANT: Record<Product["status"], "default" | "success" | "warning
 };
 
 export default function CatalogPage() {
-  const { data: stores } = useAsync(() => catalogApi.listStores(), []);
-  const own = myStores(stores ?? []);
-  const storeIds = own.map((s) => s.id);
+  const { data: own } = useAsync(() => catalogApi.listMyStores(), []);
+  const storeIds = (own ?? []).map((s) => s.id);
   const [sponsorTarget, setSponsorTarget] = useState<Product | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,7 +29,7 @@ export default function CatalogPage() {
 
   const { data: products, loading, refetch } = useAsync(async () => {
     if (storeIds.length === 0) return [];
-    const results = await Promise.all(storeIds.map((id) => catalogApi.listProducts({ store: id })));
+    const results = await Promise.all(storeIds.map((id) => catalogApi.listAllProductsForStore(id)));
     return results.flat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeIds.join(",")]);

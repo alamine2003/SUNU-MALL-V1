@@ -12,8 +12,8 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Spinner } from "@/components/ui/Spinner";
 import { ApiError } from "@/lib/api";
-import { myStores } from "@/lib/merchant";
 
 const schema = z.object({
   store: z.string().min(1, "Boutique requise"),
@@ -28,7 +28,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function AddProductPage() {
   const navigate = useNavigate();
-  const { data: stores } = useAsync(() => catalogApi.listStores(), []);
+  const { data: own, loading: loadingStores } = useAsync(() => catalogApi.listMyStores(), []);
   const { data: categories } = useAsync(() => catalogApi.listCategories(), []);
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -39,8 +39,6 @@ export default function AddProductPage() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { initial_quantity: 100 } });
-
-  const own = myStores(stores ?? []);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -80,7 +78,9 @@ export default function AddProductPage() {
     }
   }
 
-  if (own.length === 0) {
+  if (loadingStores) return <Spinner label="Chargement…" />;
+
+  if (!own || own.length === 0) {
     return (
       <EmptyState icon={StoreIcon} title="Créez d'abord votre boutique" description="Vous devez avoir une boutique avant de pouvoir ajouter des produits." />
     );

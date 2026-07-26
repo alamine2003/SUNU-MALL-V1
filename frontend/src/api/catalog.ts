@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import type { Category, Paginated, Product, ProductImage, ProductVariant, Review, Store } from "@/types";
 
 export interface StoreSettings {
@@ -18,6 +19,19 @@ export async function listStores(params?: { search?: string }) {
 
 export function getStore(id: string) {
   return apiGet<Store>(`/catalog/stores/${id}/`);
+}
+
+/**
+ * Boutiques de l'utilisateur connecté, filtrées côté serveur (?owner=id) —
+ * contrairement à `listStores`, ne dépend pas de la 1ère page de la liste
+ * globale (qui se tronque silencieusement à 20 boutiques une fois la
+ * marketplace suffisamment grande).
+ */
+export async function listMyStores() {
+  const userId = useAuthStore.getState().user?.id;
+  if (!userId) return [];
+  const data = await apiGet<Paginated<Store>>(`/catalog/stores/?owner=${userId}`);
+  return data.results;
 }
 
 export function createStore(payload: { name: string; category?: string | null }) {
@@ -57,6 +71,19 @@ export async function listProducts(params?: { search?: string; store?: string; c
   const qs = search.toString();
   const data = await apiGet<Paginated<Product>>(`/catalog/products/${qs ? `?${qs}` : ""}`);
   return data.results;
+}
+
+/** Comme `listProducts({ store })`, mais parcourt toutes les pages — pour la gestion de catalogue d'un commerçant, qui doit voir la totalité de ses produits, pas seulement les 20 premiers. */
+export async function listAllProductsForStore(storeId: string) {
+  const all: Product[] = [];
+  let page = 1;
+  for (;;) {
+    const data = await apiGet<Paginated<Product>>(`/catalog/products/?store=${storeId}&page=${page}`);
+    all.push(...data.results);
+    if (!data.next) break;
+    page += 1;
+  }
+  return all;
 }
 
 /** Comme `listProducts`, mais renvoie l'enveloppe de pagination DRF complète (count/next/previous), pour les écrans de navigation catalogue avec pagination (recherche, catégories). */

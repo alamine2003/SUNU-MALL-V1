@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Mail, PackageSearch, Store as StoreIcon } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
@@ -9,17 +10,24 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+
+const PAGE_SIZE = 20;
 
 export default function BoutiqueDetailPage() {
   const { slug: storeId } = useParams<{ slug: string }>();
+  const [page, setPage] = useState(1);
 
   const { data: store, loading: loadingStore } = useAsync(() => catalogApi.getStore(storeId!), [storeId]);
   const {
-    data: products,
+    data: result,
     loading: loadingProducts,
     error: productsError,
     refetch: refetchProducts,
-  } = useAsync(() => catalogApi.listProducts({ store: storeId }), [storeId]);
+  } = useAsync(() => catalogApi.searchProducts({ store: storeId, page }), [storeId, page]);
+
+  const products = result?.results ?? [];
+  const totalPages = result ? Math.max(1, Math.ceil(result.count / PAGE_SIZE)) : 1;
 
   if (loadingStore)
     return (
@@ -67,14 +75,17 @@ export default function BoutiqueDetailPage() {
           </div>
         ) : productsError ? (
           <ErrorState onRetry={refetchProducts} />
-        ) : products?.length === 0 ? (
+        ) : products.length === 0 ? (
           <EmptyState icon={PackageSearch} title="Aucun produit dans cette boutique" description="Cette boutique n'a pas encore publié de produit." />
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {products?.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+          </>
         )}
       </div>
     </div>

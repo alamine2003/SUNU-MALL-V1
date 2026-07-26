@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { QuantityStepper } from "@/components/marketplace/QuantityStepper";
 import { useCheckoutStore } from "@/store/checkoutStore";
 import { formatPrice } from "@/lib/utils";
-import type { CartItem as ApiCartItem } from "@/types";
+import type { CartItem as ApiCartItem, Store } from "@/types";
 
 function groupByStore(items: ApiCartItem[]) {
   const groups = new Map<string, ApiCartItem[]>();
@@ -26,11 +26,16 @@ function groupByStore(items: ApiCartItem[]) {
 export default function CartPage() {
   const navigate = useNavigate();
   const { data: cart, loading, refetch } = useAsync(() => shoppingApi.getCart(), []);
-  const { data: stores } = useAsync(() => catalogApi.listStores(), []);
   const startCheckout = useCheckoutStore((s) => s.startCheckout);
 
   const groups = useMemo(() => groupByStore(cart?.items ?? []), [cart]);
-  const storeName = (storeId: string) => stores?.find((s) => s.id === storeId)?.name ?? "Boutique";
+  const storeIds = useMemo(() => groups.map(([storeId]) => storeId), [groups]);
+  const { data: storesById } = useAsync(async () => {
+    const entries = await Promise.all(storeIds.map(async (id) => [id, await catalogApi.getStore(id)] as const));
+    return Object.fromEntries(entries) as Record<string, Store>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeIds.join(",")]);
+  const storeName = (storeId: string) => storesById?.[storeId]?.name ?? "Boutique";
   const grandTotal = cart?.items.reduce((sum, i) => sum + i.subtotal, 0) ?? 0;
 
   async function updateQty(itemId: string, quantity: number) {

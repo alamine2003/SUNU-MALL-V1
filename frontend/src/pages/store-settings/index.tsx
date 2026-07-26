@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { myStores } from "@/lib/merchant";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -32,17 +31,16 @@ type BusinessHours = Record<string, DayHours>;
 const DEFAULT_HOURS: DayHours = { closed: false, open: "08:00", close: "19:00" };
 
 export default function StoreSettingsPage() {
-  const { data: stores, loading: loadingStores, refetch: refetchStores } = useAsync(() => catalogApi.listStores(), []);
-  const own = myStores(stores ?? []);
+  const { data: own, loading: loadingStores, refetch: refetchStores } = useAsync(() => catalogApi.listMyStores(), []);
   const [storeId, setStoreId] = useState<string>("");
-  const selectedStore = own.find((s) => s.id === storeId);
+  const selectedStore = own?.find((s) => s.id === storeId);
   const [locating, setLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    if (!storeId && own.length > 0) setStoreId(own[0].id);
+    if (!storeId && own && own.length > 0) setStoreId(own[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [own.length]);
+  }, [own?.length]);
 
   const {
     data: settings,
@@ -116,7 +114,7 @@ export default function StoreSettingsPage() {
   }
 
   if (loadingStores) return <Spinner label="Chargement…" />;
-  if (own.length === 0) {
+  if (!own || own.length === 0) {
     return <EmptyState icon={StoreIcon} title="Aucune boutique" description="Créez d'abord votre boutique pour configurer ses paramètres." />;
   }
 

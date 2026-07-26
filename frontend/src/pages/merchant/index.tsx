@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { myStores } from "@/lib/merchant";
 import { formatDate, formatPrice } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
@@ -22,14 +21,13 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger
 };
 
 export default function MerchantDashboardPage() {
-  const { data: stores, loading: loadingStores } = useAsync(() => catalogApi.listStores(), []);
+  const { data: own, loading: loadingStores } = useAsync(() => catalogApi.listMyStores(), []);
   const { data: orders, loading: loadingOrders, refetch: refetchOrders } = useAsync(() => ordersApi.listOrders(), []);
   const { data: drivers } = useAsync(() => ordersApi.listAvailableDrivers(), []);
   const [assigningDeliveryId, setAssigningDeliveryId] = useState<string | null>(null);
 
   if (loadingStores || loadingOrders) return <Spinner label="Chargement du tableau de bord…" />;
-
-  const own = myStores(stores ?? []);
+  if (!own) return null;
   const revenue = orders?.reduce((sum, o) => sum + parseFloat(o.total_amount), 0) ?? 0;
 
   async function assign(deliveryId: string, driverId: string) {
