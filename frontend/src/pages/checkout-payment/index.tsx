@@ -32,8 +32,15 @@ export default function CheckoutPaymentPage() {
     }
   }, [createdOrder]);
 
-  if (!storeId) return <Navigate to="/cart" replace />;
-  if (!address) return <Navigate to="/checkout-address" replace />;
+  // Une fois la commande créée, ces gardes ne doivent plus s'appliquer :
+  // reset() (appelé après un paiement simulé réussi, avant la navigation
+  // vers /order-confirmed) vide storeId/address, et sans cette condition
+  // le composant se re-rendait entre-temps sur cette page et redirigeait
+  // vers /cart avant même que la navigation explicite n'ait eu lieu.
+  if (!createdOrder) {
+    if (!storeId) return <Navigate to="/cart" replace />;
+    if (!address) return <Navigate to="/checkout-address" replace />;
+  }
 
   const subtotal = items.reduce((sum, i) => sum + i.subtotal, 0);
   const total = subtotal + deliveryFee;
