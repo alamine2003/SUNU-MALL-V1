@@ -32,6 +32,10 @@ export function rejectStore(id: string, reason?: string) {
   return apiPost<Store>(`/catalog/stores/${id}/reject/`, { reason });
 }
 
+export function updateStorePosition(storeId: string, payload: { latitude: number; longitude: number }) {
+  return apiPatch<Store>(`/catalog/stores/${storeId}/`, payload);
+}
+
 export function getStoreSettings(storeId: string) {
   return apiGet<StoreSettings>(`/catalog/stores/${storeId}/settings/`);
 }

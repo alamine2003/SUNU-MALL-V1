@@ -27,6 +27,8 @@ class Store(models.Model):
     category = models.ForeignKey(StoreCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='stores')
     name = models.CharField(max_length=255)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.INACTIVE)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

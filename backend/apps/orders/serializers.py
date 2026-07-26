@@ -111,9 +111,20 @@ class CheckoutSerializer(serializers.Serializer):
     Payload attendu par OrderViewSet.checkout : construit en une transaction
     ACID la commande, ses lignes, sa livraison et son paiement en attente,
     à partir du panier validé sur les écrans checkout-address / -delivery / -payment.
+
+    Le frais de livraison n'est jamais pris depuis le client : seul
+    `delivery_type` est transmis, le montant est recalculé côté serveur
+    (voir `apps.orders.pricing.compute_delivery_fee`).
     """
     store = serializers.UUIDField()
     address = serializers.UUIDField()
-    delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2, default=0)
+    delivery_type = serializers.ChoiceField(choices=["pickup", "standard", "express"], default="standard")
     payment_method = serializers.ChoiceField(choices=["wave", "orange_money", "card"])
     items = CheckoutItemInputSerializer(many=True)
+
+
+class DeliveryQuoteSerializer(serializers.Serializer):
+    """Payload pour prévisualiser le frais de livraison avant de passer commande."""
+    store = serializers.UUIDField()
+    address = serializers.UUIDField()
+    delivery_type = serializers.ChoiceField(choices=["pickup", "standard", "express"], default="standard")

@@ -203,6 +203,19 @@ class StoreViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        store = self.get_object()
+        user = self.request.user
+        if not user.has_role(Role.RoleName.ADMIN) and store.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez modifier que votre propre boutique.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if not user.has_role(Role.RoleName.ADMIN) and instance.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez supprimer que votre propre boutique.")
+        instance.delete()
+
     def _notify_owner(self, store, subject, message):
         Notification.objects.create(
             user=store.owner,

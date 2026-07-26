@@ -18,7 +18,7 @@ const METHODS = [
 
 export default function CheckoutPaymentPage() {
   const navigate = useNavigate();
-  const { storeId, address, items, deliveryFee, paymentMethod, setPaymentMethod, reset } = useCheckoutStore();
+  const { storeId, address, items, deliveryMethod, deliveryFee, paymentMethod, setPaymentMethod, reset } = useCheckoutStore();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -45,7 +45,7 @@ export default function CheckoutPaymentPage() {
       const order = await ordersApi.checkout({
         store: storeId!,
         address: address!.id,
-        delivery_fee: deliveryFee,
+        delivery_type: deliveryMethod,
         payment_method: paymentMethod,
         items: items.map((i) => ({ product_variant: i.product_variant, quantity: i.quantity })),
       });

@@ -34,6 +34,8 @@ export interface Store {
   category: string | null;
   name: string;
   status: "inactive" | "active" | "suspended";
+  latitude: string | null;
+  longitude: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -192,7 +194,7 @@ export interface Order {
 export interface CheckoutPayload {
   store: string;
   address: string;
-  delivery_fee: number;
+  delivery_type: "pickup" | "standard" | "express";
   payment_method: "wave" | "orange_money" | "card";
   items: { product_variant: string; quantity: number }[];
 }

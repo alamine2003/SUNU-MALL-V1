@@ -1,4 +1,6 @@
 from decimal import Decimal
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import models, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -7,11 +9,13 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from .models import Address, Delivery, DeliveryTracking, Driver, Order, OrderItem
+from .pricing import compute_delivery_fee
 from .serializers import (
-    AddressSerializer, CheckoutSerializer, DeliverySerializer,
+    AddressSerializer, CheckoutSerializer, DeliveryQuoteSerializer, DeliverySerializer,
     DeliveryTrackingSerializer, DriverSerializer, OrderSerializer,
 )
 from apps.catalog.models import ProductVariant, Store
+from apps.monetization.models import Notification
 from apps.payments.models import Payment
 from apps.shopping.models import CartItem
 from apps.users.models import Role
@@ -47,6 +51,17 @@ class OrderViewSet(viewsets.ModelViewSet):
         ).distinct()
 
     @action(detail=False, methods=["post"])
+    def quote(self, request):
+        """Prévisualise le frais de livraison (même formule que le checkout) avant paiement."""
+        serializer = DeliveryQuoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        store = get_object_or_404(Store, pk=data["store"])
+        address = get_object_or_404(Address, pk=data["address"], user=request.user)
+        fee = compute_delivery_fee(store, address, data["delivery_type"])
+        return Response({"delivery_fee": str(fee)})
+
+    @action(detail=False, methods=["post"])
     def checkout(self, request):
         """
         Construit, en une transaction, la commande, ses lignes, sa livraison
@@ -60,13 +75,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         store = get_object_or_404(Store, pk=data["store"])
         address = get_object_or_404(Address, pk=data["address"], user=request.user)
+        delivery_fee = compute_delivery_fee(store, address, data["delivery_type"])
 
         with transaction.atomic():
             order = Order.objects.create(
                 customer=request.user,
                 store=store,
                 address=address,
-                delivery_fee=data["delivery_fee"],
+                delivery_fee=delivery_fee,
             )
 
             total = Decimal("0")
@@ -162,6 +178,27 @@ class DeliveryViewSet(viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied("Vous ne pouvez affecter un livreur qu'à vos propres commandes.")
         driver = get_object_or_404(Driver, pk=request.data.get("driver"))
         delivery.assign_driver(driver)
+
+        subject = "Nouvelle course qui vous a été affectée"
+        message = (
+            f"Bonjour {driver.user.first_name},\n\n"
+            f"Une nouvelle course vous a été affectée (commande {delivery.order.id}).\n"
+            "Connectez-vous à votre espace livreur pour voir le détail et démarrer la livraison.\n\n"
+            "Merci."
+        )
+        Notification.objects.create(
+            user=driver.user,
+            channel=Notification.Channel.PUSH,
+            subject=subject,
+            message=message,
+            status=Notification.Status.PENDING,
+            metadata={"delivery_id": str(delivery.id), "order_id": str(delivery.order.id)},
+        )
+        try:
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [driver.user.email], fail_silently=True)
+        except Exception:
+            pass
+
         return Response(DeliverySerializer(delivery).data)
 
     @action(detail=True, methods=["post"], url_path="status")

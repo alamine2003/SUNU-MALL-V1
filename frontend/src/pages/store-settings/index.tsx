@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Settings, Store as StoreIcon, TriangleAlert } from "lucide-react";
+import { CheckCircle2, MapPin, Settings, Store as StoreIcon, TriangleAlert } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import { Card } from "@/components/ui/Card";
@@ -32,9 +32,12 @@ type BusinessHours = Record<string, DayHours>;
 const DEFAULT_HOURS: DayHours = { closed: false, open: "08:00", close: "19:00" };
 
 export default function StoreSettingsPage() {
-  const { data: stores, loading: loadingStores } = useAsync(() => catalogApi.listStores(), []);
+  const { data: stores, loading: loadingStores, refetch: refetchStores } = useAsync(() => catalogApi.listStores(), []);
   const own = myStores(stores ?? []);
   const [storeId, setStoreId] = useState<string>("");
+  const selectedStore = own.find((s) => s.id === storeId);
+  const [locating, setLocating] = useState(false);
+  const [locationFeedback, setLocationFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!storeId && own.length > 0) setStoreId(own[0].id);
@@ -83,6 +86,35 @@ export default function StoreSettingsPage() {
     }
   }
 
+  function handleUseMyPosition() {
+    if (!navigator.geolocation) {
+      setLocationFeedback({ type: "error", text: "Géolocalisation non disponible sur cet appareil." });
+      return;
+    }
+    setLocating(true);
+    setLocationFeedback(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await catalogApi.updateStorePosition(storeId, {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setLocationFeedback({ type: "success", text: "Position de la boutique enregistrée." });
+          refetchStores();
+        } catch {
+          setLocationFeedback({ type: "error", text: "Impossible d'enregistrer la position." });
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocationFeedback({ type: "error", text: "Impossible d'obtenir votre position." });
+        setLocating(false);
+      },
+    );
+  }
+
   if (loadingStores) return <Spinner label="Chargement…" />;
   if (own.length === 0) {
     return <EmptyState icon={StoreIcon} title="Aucune boutique" description="Créez d'abord votre boutique pour configurer ses paramètres." />;
@@ -110,6 +142,37 @@ export default function StoreSettingsPage() {
         <Spinner label="Chargement des paramètres…" />
       ) : (
         <Card className="flex flex-col gap-5">
+          <div>
+            <p className="mb-3 text-sm font-semibold text-ink">Localisation de la boutique</p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Sert à calculer le frais de livraison réel de vos clients selon la distance. Sans position, un forfait
+              par défaut est appliqué.
+            </p>
+            {selectedStore?.latitude && selectedStore?.longitude ? (
+              <p className="mb-3 flex items-center gap-1.5 text-sm text-ink">
+                <MapPin className="h-4 w-4 text-orange" />
+                Position enregistrée ({parseFloat(selectedStore.latitude).toFixed(4)}, {parseFloat(selectedStore.longitude).toFixed(4)})
+              </p>
+            ) : (
+              <p className="mb-3 text-sm text-muted-foreground">Aucune position enregistrée pour l'instant.</p>
+            )}
+            <Button variant="secondary" onClick={handleUseMyPosition} loading={locating}>
+              <MapPin className="h-4 w-4" />
+              Utiliser ma position actuelle
+            </Button>
+            {locationFeedback && (
+              <div
+                className={cn(
+                  "mt-3 flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-medium",
+                  locationFeedback.type === "success" ? "border-green-200 bg-green-50 text-green-700" : "border-danger/30 bg-red-50 text-danger",
+                )}
+              >
+                {locationFeedback.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <TriangleAlert className="h-4 w-4 shrink-0" />}
+                {locationFeedback.text}
+              </div>
+            )}
+          </div>
+
           <div>
             <p className="mb-3 text-sm font-semibold text-ink">Horaires d'ouverture</p>
             <div className="flex flex-col gap-2">

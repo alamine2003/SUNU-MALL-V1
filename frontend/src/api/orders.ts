@@ -36,6 +36,15 @@ export function checkout(payload: CheckoutPayload) {
   return apiPost<Order>("/orders/checkout/", payload);
 }
 
+export async function getDeliveryQuote(payload: {
+  store: string;
+  address: string;
+  delivery_type: "pickup" | "standard" | "express";
+}) {
+  const data = await apiPost<{ delivery_fee: string }>("/orders/quote/", payload);
+  return parseFloat(data.delivery_fee);
+}
+
 export async function listAvailableDrivers() {
   const data = await apiGet<Paginated<Driver>>("/orders/drivers/");
   return data.results;
