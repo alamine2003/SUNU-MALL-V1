@@ -1,6 +1,4 @@
 from decimal import Decimal
-from django.conf import settings
-from django.core.mail import send_mail
 from django.db import models, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -15,7 +13,6 @@ from .serializers import (
     DeliveryTrackingSerializer, DriverSerializer, OrderSerializer,
 )
 from apps.catalog.models import ProductVariant, Store
-from apps.monetization.models import Notification
 from apps.payments.models import Payment
 from apps.shopping.models import CartItem
 from apps.users.models import Role
@@ -204,27 +201,6 @@ class DeliveryViewSet(viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied("Vous ne pouvez affecter un livreur qu'à vos propres commandes.")
         driver = get_object_or_404(Driver, pk=request.data.get("driver"))
         delivery.assign_driver(driver)
-
-        subject = "Nouvelle course qui vous a été affectée"
-        message = (
-            f"Bonjour {driver.user.first_name},\n\n"
-            f"Une nouvelle course vous a été affectée (commande {delivery.order.id}).\n"
-            "Connectez-vous à votre espace livreur pour voir le détail et démarrer la livraison.\n\n"
-            "Merci."
-        )
-        Notification.objects.create(
-            user=driver.user,
-            channel=Notification.Channel.PUSH,
-            subject=subject,
-            message=message,
-            status=Notification.Status.PENDING,
-            metadata={"delivery_id": str(delivery.id), "order_id": str(delivery.order.id)},
-        )
-        try:
-            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [driver.user.email], fail_silently=True)
-        except Exception:
-            pass
-
         return Response(DeliverySerializer(delivery).data)
 
     @action(detail=True, methods=["post"], url_path="status")

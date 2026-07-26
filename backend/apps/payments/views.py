@@ -90,6 +90,9 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
             payment.mark_succeeded()
             payment.order.change_status(Order.Status.PAID)
             _send_order_confirmation(payment.order)
+            delivery = getattr(payment.order, "delivery", None)
+            if delivery:
+                delivery.auto_assign()
         else:
             payment.mark_failed()
         return Response(PaymentSerializer(payment).data)

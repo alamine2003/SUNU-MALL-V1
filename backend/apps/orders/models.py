@@ -68,6 +68,54 @@ class Delivery(models.Model):
         self.driver = driver
         self.status = self.Status.ASSIGNED
         self.save()
+        self._notify_driver_assigned()
+
+    def _notify_driver_assigned(self):
+        from apps.monetization.models import Notification
+
+        subject = "Nouvelle course qui vous a été affectée"
+        message = (
+            f"Bonjour {self.driver.user.first_name},\n\n"
+            f"Une nouvelle course vous a été affectée (commande {self.order.id}).\n"
+            "Connectez-vous à votre espace livreur pour voir le détail et démarrer la livraison.\n\n"
+            "Merci."
+        )
+        notification = Notification.objects.create(
+            user=self.driver.user,
+            channel=Notification.Channel.EMAIL,
+            subject=subject,
+            message=message,
+            metadata={"delivery_id": str(self.id), "order_id": str(self.order.id)},
+        )
+        notification.send()
+
+    def auto_assign(self):
+        """
+        Affecte automatiquement le livreur disponible ayant le moins de
+        courses actives (assigned/picked_up) en ce moment — pour ne pas
+        dépendre d'une affectation manuelle à chaque commande, ce qui ne
+        tient pas à l'échelle (des centaines de commandes). Ne fait rien
+        si un livreur est déjà affecté, ou si aucun n'est disponible : la
+        course reste alors "pending", affectable à la main en filet de
+        secours (menu déroulant déjà existant côté commerçant/admin).
+        """
+        if self.driver_id is not None:
+            return None
+
+        candidate = (
+            Driver.objects.filter(availability_status=Driver.AvailabilityStatus.AVAILABLE)
+            .annotate(
+                active_count=models.Count(
+                    "deliveries",
+                    filter=models.Q(deliveries__status__in=[self.Status.ASSIGNED, self.Status.PICKED_UP]),
+                )
+            )
+            .order_by("active_count")
+            .first()
+        )
+        if candidate:
+            self.assign_driver(candidate)
+        return candidate
 
     def mark_delivered(self):
         self.status = self.Status.DELIVERED
