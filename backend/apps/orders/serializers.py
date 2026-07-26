@@ -77,21 +77,25 @@ class OrderSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField()
     customer_email = serializers.EmailField(source="customer.email", read_only=True)
     customer_name = serializers.SerializerMethodField()
+    can_be_cancelled = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             "id", "customer", "customer_name", "customer_email", "store", "store_name", "address", "address_detail",
-            "total_amount", "delivery_fee", "status", "items", "delivery", "payment",
+            "total_amount", "delivery_fee", "status", "can_be_cancelled", "items", "delivery", "payment",
             "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "customer", "customer_name", "customer_email", "store_name", "address_detail",
-            "total_amount", "status", "items", "delivery", "payment", "created_at", "updated_at",
+            "total_amount", "status", "can_be_cancelled", "items", "delivery", "payment", "created_at", "updated_at",
         ]
 
     def get_customer_name(self, obj):
         return obj.customer.get_full_name() or obj.customer.email
+
+    def get_can_be_cancelled(self, obj):
+        return obj.can_be_cancelled()
 
     def get_payment(self, obj):
         payment = getattr(obj, "payment", None)

@@ -1,13 +1,23 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, Clock, MapPin, PackageCheck, PackageSearch, Truck } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, PackageCheck, PackageSearch, Truck, XCircle } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as ordersApi from "@/api/orders";
+import * as paymentsApi from "@/api/payments";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
 import type { DeliveryStatus } from "@/types";
+
+const PAYMENT_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
+  success: "success",
+  pending: "warning",
+  failed: "danger",
+  refunded: "default",
+};
 
 const DeliveryMap = lazy(() => import("@/components/marketplace/DeliveryMap").then((m) => ({ default: m.DeliveryMap })));
 
@@ -25,6 +35,8 @@ export default function TrackingPage() {
     () => (orderId ? ordersApi.getOrder(orderId) : Promise.resolve(null)),
     [orderId],
   );
+  const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -37,13 +49,54 @@ export default function TrackingPage() {
 
   const currentIndex = Math.max(0, STEPS.findIndex((s) => s.key === order.delivery?.status));
 
+  async function handleCancel() {
+    if (!order || !confirm("Annuler cette commande ?")) return;
+    setCancelling(true);
+    try {
+      await ordersApi.cancelOrder(order.id);
+      refetch();
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  async function handleRetryPayment() {
+    if (!order?.payment) return;
+    setRetrying(true);
+    try {
+      await paymentsApi.sandboxConfirmPayment(order.payment.id, "success");
+      refetch();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-2xl font-bold text-gray-900">Suivi de livraison</h1>
       <Card className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">
-          Commande n°{order.id.slice(0, 8)} — <strong className="text-ink">{order.store_name}</strong>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Commande n°{order.id.slice(0, 8)} — <strong className="text-ink">{order.store_name}</strong>
+          </p>
+          {order.can_be_cancelled && (
+            <Button variant="danger" size="sm" onClick={handleCancel} loading={cancelling}>
+              <XCircle className="h-4 w-4" />
+              Annuler la commande
+            </Button>
+          )}
+        </div>
+
+        {order.payment?.status === "failed" && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-danger/30 bg-red-50 p-3">
+            <Badge variant={PAYMENT_STATUS_VARIANT[order.payment.status]}>Paiement échoué</Badge>
+            <p className="flex-1 text-xs text-danger">Le paiement n'a pas abouti.</p>
+            <Button size="sm" onClick={handleRetryPayment} loading={retrying}>
+              Réessayer le paiement
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-start">
           {STEPS.map((step, i) => (
             <div key={step.key} className="flex flex-1 items-center last:flex-none">

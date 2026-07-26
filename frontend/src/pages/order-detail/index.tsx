@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CreditCard, MapPin, PackageX, Truck, User } from "lucide-react";
+import { CreditCard, MapPin, PackageX, Truck, User, XCircle } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as ordersApi from "@/api/orders";
+import * as paymentsApi from "@/api/payments";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatPrice } from "@/lib/utils";
@@ -42,6 +44,8 @@ export default function OrderDetailPage() {
   );
   const { data: drivers } = useAsync(() => ordersApi.listAvailableDrivers(), []);
   const [assigning, setAssigning] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   if (!orderId) return <EmptyState icon={PackageX} title="Aucune commande sélectionnée" />;
   if (loading) return <Spinner label="Chargement de la commande…" />;
@@ -58,12 +62,42 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function handleCancel() {
+    if (!order || !confirm("Annuler cette commande ?")) return;
+    setCancelling(true);
+    try {
+      await ordersApi.cancelOrder(order.id);
+      refetch();
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  async function handleRetryPayment() {
+    if (!order?.payment) return;
+    setRetrying(true);
+    try {
+      await paymentsApi.sandboxConfirmPayment(order.payment.id, "success");
+      refetch();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-gray-900">
-        Commande n°{order.id.slice(0, 8)}
-        <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "default"}>{order.status}</Badge>
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-gray-900">
+          Commande n°{order.id.slice(0, 8)}
+          <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "default"}>{order.status}</Badge>
+        </h1>
+        {order.can_be_cancelled && (
+          <Button variant="danger" size="sm" onClick={handleCancel} loading={cancelling}>
+            <XCircle className="h-4 w-4" />
+            Annuler la commande
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="flex flex-col gap-3">
@@ -87,12 +121,22 @@ export default function OrderDetailPage() {
             <CreditCard className="h-4 w-4 text-orange" /> Paiement
           </h2>
           {order.payment ? (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-ink">
-                Méthode : <strong className="font-semibold">{order.payment.method}</strong>
-              </p>
-              <Badge variant={PAYMENT_STATUS_VARIANT[order.payment.status] ?? "default"}>{order.payment.status}</Badge>
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-ink">
+                  Méthode : <strong className="font-semibold">{order.payment.method}</strong>
+                </p>
+                <Badge variant={PAYMENT_STATUS_VARIANT[order.payment.status] ?? "default"}>{order.payment.status}</Badge>
+              </div>
+              {order.payment.status === "failed" && (
+                <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 p-3">
+                  <p className="flex-1 text-xs text-danger">Le paiement a échoué. Le client peut réessayer.</p>
+                  <Button size="sm" onClick={handleRetryPayment} loading={retrying}>
+                    Simuler succès
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">Aucun paiement associé.</p>
           )}

@@ -117,6 +117,29 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        """Annule une commande encore annulable (client, boutique concernée ou admin)."""
+        order = self.get_object()
+        user = request.user
+        is_allowed = (
+            order.customer_id == user.id
+            or order.store.owner_id == user.id
+            or user.has_role(Role.RoleName.ADMIN)
+        )
+        if not is_allowed:
+            raise PermissionDenied("Vous ne pouvez annuler que vos propres commandes.")
+        if not order.can_be_cancelled():
+            raise ValidationError(f"Une commande au statut « {order.status} » ne peut plus être annulée.")
+
+        order.change_status(Order.Status.CANCELLED)
+        delivery = getattr(order, "delivery", None)
+        if delivery and delivery.status in [Delivery.Status.PENDING, Delivery.Status.ASSIGNED]:
+            delivery.status = Delivery.Status.CANCELLED
+            delivery.save(update_fields=["status"])
+
+        return Response(OrderSerializer(order).data)
+
 
 class DriverViewSet(viewsets.ReadOnlyModelViewSet):
     """

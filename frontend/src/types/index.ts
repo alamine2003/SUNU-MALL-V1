@@ -184,6 +184,7 @@ export interface Order {
   total_amount: string;
   delivery_fee: string;
   status: OrderStatus;
+  can_be_cancelled: boolean;
   items: OrderItem[];
   delivery: Delivery;
   payment: { id: string; method: string; status: "pending" | "success" | "failed" | "refunded" } | null;

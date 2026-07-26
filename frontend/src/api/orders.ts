@@ -36,6 +36,10 @@ export function checkout(payload: CheckoutPayload) {
   return apiPost<Order>("/orders/checkout/", payload);
 }
 
+export function cancelOrder(id: string) {
+  return apiPost<Order>(`/orders/${id}/cancel/`);
+}
+
 export async function getDeliveryQuote(payload: {
   store: string;
   address: string;
