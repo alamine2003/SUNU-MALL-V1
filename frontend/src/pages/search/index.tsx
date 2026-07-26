@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon } from "lucide-react";
+import { Megaphone, Search as SearchIcon } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import { ProductCard } from "@/components/marketplace/ProductCard";
@@ -15,6 +15,7 @@ const PAGE_SIZE = 20;
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
+  const sponsoredOnly = searchParams.get("sponsored") === "true";
   const [page, setPage] = useState(1);
 
   const {
@@ -22,7 +23,10 @@ export default function SearchPage() {
     loading,
     error,
     refetch,
-  } = useAsync(() => catalogApi.searchProducts({ search: query || undefined, page }), [query, page]);
+  } = useAsync(
+    () => catalogApi.searchProducts({ search: query || undefined, sponsored: sponsoredOnly || undefined, page }),
+    [query, sponsoredOnly, page],
+  );
 
   const products = result?.results ?? [];
   const totalPages = result ? Math.max(1, Math.ceil(result.count / PAGE_SIZE)) : 1;
@@ -31,8 +35,17 @@ export default function SearchPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8">
       <div>
         <h1 className="mb-4 flex items-center gap-2 font-display text-2xl font-bold text-gray-900">
-          <SearchIcon className="h-6 w-6 text-orange" />
-          Résultats de recherche
+          {sponsoredOnly ? (
+            <>
+              <Megaphone className="h-6 w-6 text-orange" />
+              Produits sponsorisés
+            </>
+          ) : (
+            <>
+              <SearchIcon className="h-6 w-6 text-orange" />
+              Résultats de recherche
+            </>
+          )}
         </h1>
         <Input
           icon={SearchIcon}
@@ -64,8 +77,14 @@ export default function SearchPage() {
         </>
       ) : (
         <EmptyState
-          icon={SearchIcon}
-          title={query ? `Aucun résultat pour « ${query} »` : "Aucun produit pour le moment"}
+          icon={sponsoredOnly ? Megaphone : SearchIcon}
+          title={
+            sponsoredOnly
+              ? "Aucun produit sponsorisé pour le moment"
+              : query
+                ? `Aucun résultat pour « ${query} »`
+                : "Aucun produit pour le moment"
+          }
           description="Essayez un autre mot-clé ou parcourez nos catégories."
         />
       )}

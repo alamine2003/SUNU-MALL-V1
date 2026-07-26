@@ -164,7 +164,13 @@ export default function HomePage() {
       </section>
 
       {/* ─── SPONSORISÉ ─── */}
-      <ProductRail title="Sponsorisé" products={sponsoredProducts} loading={loadingSponsored} sponsored />
+      <ProductRail
+        title="Sponsorisé"
+        viewAllHref="/search?sponsored=true"
+        products={sponsoredProducts}
+        loading={loadingSponsored}
+        sponsored
+      />
 
       {/* ─── MEILLEURES VENTES ─── */}
       <ProductRail title="Meilleures ventes" viewAllHref="/search" products={bestSellers} loading={loadingBestSellers} />

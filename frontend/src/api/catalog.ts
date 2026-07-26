@@ -60,12 +60,19 @@ export async function listProducts(params?: { search?: string; store?: string; c
 }
 
 /** Comme `listProducts`, mais renvoie l'enveloppe de pagination DRF complète (count/next/previous), pour les écrans de navigation catalogue avec pagination (recherche, catégories). */
-export async function searchProducts(params?: { search?: string; store?: string; category?: string; page?: number }) {
+export async function searchProducts(params?: {
+  search?: string;
+  store?: string;
+  category?: string;
+  page?: number;
+  sponsored?: boolean;
+}) {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.store) qs.set("store", params.store);
   if (params?.category) qs.set("category", params.category);
   if (params?.page) qs.set("page", String(params.page));
+  if (params?.sponsored) qs.set("sponsored", "true");
   const query = qs.toString();
   return apiGet<Paginated<Product>>(`/catalog/products/${query ? `?${query}` : ""}`);
 }

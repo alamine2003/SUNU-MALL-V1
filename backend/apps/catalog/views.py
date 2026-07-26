@@ -72,10 +72,22 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated and user.has_role(Role.RoleName.ADMIN):
-            return Product.objects.all()
-        if user.is_authenticated:
-            return Product.objects.filter(models.Q(status=Product.Status.ACTIVE) | models.Q(store__owner=user))
-        return Product.objects.filter(status=Product.Status.ACTIVE)
+            queryset = Product.objects.all()
+        elif user.is_authenticated:
+            queryset = Product.objects.filter(models.Q(status=Product.Status.ACTIVE) | models.Q(store__owner=user))
+        else:
+            queryset = Product.objects.filter(status=Product.Status.ACTIVE)
+
+        if self.request.query_params.get("sponsored") == "true":
+            today = timezone.now().date()
+            sponsored_product_ids = SponsoredProduct.objects.filter(
+                status=SponsoredProduct.Status.ACTIVE,
+                starts_at__lte=today,
+                ends_at__gte=today,
+            ).values_list("product_id", flat=True)
+            queryset = queryset.filter(id__in=sponsored_product_ids)
+
+        return queryset
 
     def perform_create(self, serializer):
         store = serializer.validated_data.get("store")
