@@ -3,10 +3,15 @@ from .models import Category, Inventory, Product, ProductImage, ProductVariant, 
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Category
-        fields = ["id", "parent", "name", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = ["id", "parent", "name", "image_url", "created_at", "updated_at"]
+        read_only_fields = ["id", "image_url", "created_at", "updated_at"]
+
+    def get_image_url(self, obj):
+        return obj.image.url if obj.image else None
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

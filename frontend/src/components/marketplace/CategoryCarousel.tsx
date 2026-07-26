@@ -106,8 +106,20 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
             <Link
               key={`${c.id}-${i}`}
               to={`/category/${c.id}`}
-              className={`group/card relative flex aspect-[4/3] w-52 shrink-0 items-end overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br p-3 shadow-sm ${gradient}`}
+              className={`group/card relative flex aspect-[4/3] w-52 shrink-0 items-end overflow-hidden rounded-2xl border border-gray-100 p-3 shadow-sm ${
+                c.image_url ? "bg-navy" : `bg-gradient-to-br ${gradient}`
+              }`}
             >
+              {c.image_url && (
+                <>
+                  <img
+                    src={c.image_url}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                </>
+              )}
               <span className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-orange shadow">
                 <Icon className="h-4 w-4" />
               </span>

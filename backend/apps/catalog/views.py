@@ -26,6 +26,27 @@ class CategoryViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = []
 
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "upload_image"]:
+            return [permissions.IsAuthenticated(), IsAdmin()]
+        return super().get_permissions()
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="image",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_image(self, request, pk=None):
+        """Visuel de la tuile de catégorie (accueil, page catégories). Admin uniquement."""
+        category = self.get_object()
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"error": "Fichier 'image' requis."}, status=status.HTTP_400_BAD_REQUEST)
+        category.image = image_file
+        category.save(update_fields=["image"])
+        return Response(CategorySerializer(category).data)
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     """
