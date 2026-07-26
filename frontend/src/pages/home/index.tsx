@@ -53,15 +53,15 @@ export default function HomePage() {
   const { data: sponsoredProducts, loading: loadingSponsored } = useAsync(() => catalogApi.listSponsoredProducts(), []);
   const { data: bestSellers, loading: loadingBestSellers } = useAsync(() => catalogApi.listBestSellers(), []);
 
-  const topCategories = (categories ?? []).filter((c) => !c.parent).slice(0, 2);
-  const { data: categoryProducts1, loading: loadingCat1 } = useAsync(
-    () => (topCategories[0] ? catalogApi.listProducts({ category: topCategories[0].id }) : Promise.resolve([])),
-    [topCategories[0]?.id],
-  );
-  const { data: categoryProducts2, loading: loadingCat2 } = useAsync(
-    () => (topCategories[1] ? catalogApi.listProducts({ category: topCategories[1].id }) : Promise.resolve([])),
-    [topCategories[1]?.id],
-  );
+  const topCategories = (categories ?? []).filter((c) => !c.parent);
+  const topCategoryIds = topCategories.map((c) => c.id).join(",");
+  const { data: categoryProductsMap, loading: loadingCategoryProducts } = useAsync(async () => {
+    const entries = await Promise.all(
+      topCategories.map(async (c) => [c.id, await catalogApi.listProducts({ category: c.id })] as const),
+    );
+    return Object.fromEntries(entries) as Record<string, Product[]>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topCategoryIds]);
 
   const recentlyViewedIds = useRecentlyViewedStore((s) => s.productIds);
   const { data: recentlyViewed } = useAsync(async () => {
@@ -197,25 +197,18 @@ export default function HomePage() {
       </section>
 
       {/* ─── PAR CATÉGORIE ─── */}
-      {topCategories[0] && (
+      {topCategories.map((c) => (
         <ProductRail
-          title={topCategories[0].name}
-          viewAllHref={`/category/${topCategories[0].id}`}
-          products={categoryProducts1}
-          loading={loadingCat1}
+          key={c.id}
+          title={c.name}
+          viewAllHref={`/category/${c.id}`}
+          products={categoryProductsMap?.[c.id]}
+          loading={loadingCategoryProducts}
         />
-      )}
-      {topCategories[1] && (
-        <ProductRail
-          title={topCategories[1].name}
-          viewAllHref={`/category/${topCategories[1].id}`}
-          products={categoryProducts2}
-          loading={loadingCat2}
-        />
-      )}
+      ))}
 
       {/* ─── RÉCEMMENT CONSULTÉS ─── */}
-      <ProductRail title="Récemment consultés" products={recentlyViewed} />
+      <ProductRail title="Récemment consultés" viewAllHref="/recently-viewed" products={recentlyViewed} />
 
       {/* ─── POURQUOI SUNU MALL ─── */}
       <section className="border-y border-gray-100 bg-white py-10">

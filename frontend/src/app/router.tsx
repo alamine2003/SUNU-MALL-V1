@@ -22,6 +22,7 @@ import ProductDetailPage from "@/pages/product-detail";
 import CategoryIndexPage from "@/pages/category";
 import CategoryDetailPage from "@/pages/category-detail";
 import WishlistPage from "@/pages/wishlist";
+import RecentlyViewedPage from "@/pages/recently-viewed";
 
 import CartPage from "@/pages/cart";
 import CheckoutAddressPage from "@/pages/checkout-address";
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
       { path: "/category", element: <CategoryIndexPage /> },
       { path: "/category/:slug", element: <CategoryDetailPage /> },
       { path: "/wishlist", element: <WishlistPage /> },
+      { path: "/recently-viewed", element: <RecentlyViewedPage /> },
     ],
   },
 
