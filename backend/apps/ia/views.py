@@ -7,7 +7,7 @@ from apps.catalog.models import Category, Store
 from apps.users.models import Role
 from .models import RecommendationLog
 from .serializers import ChatSerializer, GenerateDescriptionSerializer, RecommendationLogSerializer
-from .services import AIServiceError, chat_reply, generate_product_description
+from .services import MODEL_DISPLAY_NAME, AIServiceError, chat_reply, generate_product_description
 from .tasks import generate_recommendations
 
 # Nombre de messages précédents renvoyés au modèle : suffisant pour garder le
@@ -56,7 +56,7 @@ class GenerateDescriptionView(GenericAPIView):
         except AIServiceError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        return Response({"description": description})
+        return Response({"description": description, "model": MODEL_DISPLAY_NAME})
 
 
 class ChatView(GenericAPIView):

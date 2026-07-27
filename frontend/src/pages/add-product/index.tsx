@@ -162,6 +162,7 @@ export default function AddProductPage() {
               </button>
             </div>
             <Textarea {...register("description")} rows={3} />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Génération propulsée par {iaApi.AI_MODEL_DISPLAY_NAME}</p>
             {aiError && <p className="mt-1.5 text-xs text-danger">{aiError}</p>}
           </div>
           <Select label="Catégorie" {...register("category")}>

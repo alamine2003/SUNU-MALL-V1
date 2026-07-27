@@ -14,6 +14,10 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
+# Nom affichable côté interface (commerçant/client) — la marketplace montre
+# quel modèle génère le contenu plutôt que de le laisser invisible derrière
+# un simple bouton "IA".
+MODEL_DISPLAY_NAME = "Claude (Anthropic)"
 
 # Message générique renvoyé au client : le détail technique de l'erreur
 # Anthropic (souvent un problème de facturation/quota côté compte) n'a
