@@ -127,6 +127,11 @@ export function listBestSellers(params?: { store?: string }) {
   return apiGet<Product[]>(`/catalog/products/best_sellers/${qs}`);
 }
 
+/** Produits fréquemment achetés avec celui-ci (co-achat), à défaut d'autres produits de la même catégorie. */
+export function listSimilarProducts(productId: string) {
+  return apiGet<Product[]>(`/catalog/products/${productId}/similar/`);
+}
+
 export function createProduct(payload: {
   store: string;
   category?: string | null;

@@ -170,6 +170,50 @@ class ProductViewSet(viewsets.ModelViewSet):
             item["sold_quantity"] = qty_by_id.get(item["id"])
         return Response(data)
 
+    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    def similar(self, request, pk=None):
+        """
+        Produits fréquemment achetés dans les mêmes commandes que celui-ci
+        (co-achat, à partir des commandes réelles non annulées) — un
+        agrégat SQL classique, pas un appel IA générative : instantané et
+        gratuit, contrairement à un appel LLM par affichage de page produit.
+        Si le co-achat ne donne pas assez de résultats (produit encore peu
+        vendu), complète avec d'autres produits actifs de la même catégorie.
+        """
+        from apps.orders.models import Order, OrderItem
+
+        product = self.get_object()
+
+        order_ids = (
+            OrderItem.objects.filter(product_variant__product=product)
+            .exclude(order__status=Order.Status.CANCELLED)
+            .values_list("order_id", flat=True)
+        )
+        co_purchased_ids = list(
+            OrderItem.objects.filter(order_id__in=order_ids)
+            .exclude(product_variant__product=product)
+            .values("product_variant__product_id")
+            .annotate(freq=models.Count("id"))
+            .order_by("-freq")
+            .values_list("product_variant__product_id", flat=True)[:12]
+        )
+
+        products_by_id = {p.id: p for p in self.get_queryset().filter(id__in=co_purchased_ids)}
+        ordered = [products_by_id[pid] for pid in co_purchased_ids if pid in products_by_id]
+
+        if len(ordered) < 8 and product.category_id:
+            exclude_ids = {product.id, *(p.id for p in ordered)}
+            same_category = (
+                self.get_queryset()
+                .filter(category_id=product.category_id)
+                .exclude(id__in=exclude_ids)
+                .order_by("-created_at")[: 8 - len(ordered)]
+            )
+            ordered.extend(same_category)
+
+        serializer = self.get_serializer(ordered, many=True)
+        return Response(serializer.data)
+
 class ProductVariantViewSet(viewsets.ModelViewSet):
     """
     Variantes d'un produit (SKU, prix, attributs). Lecture publique pour

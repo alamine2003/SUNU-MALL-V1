@@ -3,12 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from apps.catalog.models import Category, Store
+from apps.catalog.models import Category, Product, Store
+from apps.catalog.serializers import ProductSerializer
 from apps.users.models import Role
 from .models import RecommendationLog
 from .serializers import ChatSerializer, GenerateDescriptionSerializer, RecommendationLogSerializer
 from .services import MODEL_DISPLAY_NAME, AIServiceError, chat_reply, generate_product_description
-from .tasks import generate_recommendations
 
 # Nombre de messages précédents renvoyés au modèle : suffisant pour garder le
 # fil de la conversation, sans laisser un historique illimité gonfler le coût
@@ -85,23 +85,26 @@ class ChatView(GenericAPIView):
 
 
 class RecommendationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Lecture des recommandations déjà générées. La génération elle-même
-    se fait en tâche de fond (voir l'action `trigger` ci-dessous),
-    jamais en synchrone dans la requête.
-    """
+    """Historique des recommandations calculées pour l'utilisateur connecté (voir l'action `for_me`)."""
 
-    queryset = RecommendationLog.objects.all()
     serializer_class = RecommendationLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=["post"])
-    def trigger(self, request):
+    def get_queryset(self):
+        return RecommendationLog.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=["get"], url_path="for-me")
+    def for_me(self, request):
         """
-        POST /api/ia/recommendations/trigger/
-        Lance la génération en arrière-plan (Celery) et répond
-        immédiatement, sans attendre le résultat.
+        GET /api/ia/recommendations/for-me/
+        Calcule (par co-achat, voir RecommendationLog.compute_for_user) et
+        renvoie directement les produits recommandés pour l'utilisateur
+        connecté — synchrone, un agrégat SQL est déjà instantané, inutile
+        de faire attendre un aller-retour Celery pour ça.
         """
-        user_id = request.user.id
-        generate_recommendations.delay(user_id)
-        return Response({"status": "started"}, status=202)
+        log = RecommendationLog.compute_for_user(request.user)
+        product_ids = log.payload.get("recommended_product_ids", [])
+        products = Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE)
+        products_by_id = {str(p.id): p for p in products}
+        ordered = [products_by_id[pid] for pid in product_ids if pid in products_by_id]
+        return Response(ProductSerializer(ordered, many=True).data)

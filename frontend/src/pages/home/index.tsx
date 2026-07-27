@@ -15,6 +15,7 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as monetizationApi from "@/api/monetization";
+import * as iaApi from "@/api/ia";
 import { ProductCard } from "@/components/marketplace/ProductCard";
 import { ProductRail } from "@/components/marketplace/ProductRail";
 import { CategoryCarousel } from "@/components/marketplace/CategoryCarousel";
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
+import { useAuthStore } from "@/store/authStore";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
 
@@ -52,6 +54,12 @@ export default function HomePage() {
   const { data: plans, loading: loadingPlans } = useAsync(() => monetizationApi.listSubscriptionPlans(), []);
   const { data: sponsoredProducts, loading: loadingSponsored } = useAsync(() => catalogApi.listSponsoredProducts(), []);
   const { data: bestSellers, loading: loadingBestSellers } = useAsync(() => catalogApi.listBestSellers(), []);
+
+  const user = useAuthStore((s) => s.user);
+  const { data: recommendations, loading: loadingRecommendations } = useAsync(
+    () => (user ? iaApi.getPersonalizedRecommendations() : Promise.resolve([])),
+    [user?.id],
+  );
 
   const topCategories = (categories ?? []).filter((c) => !c.parent);
   const topCategoryIds = topCategories.map((c) => c.id).join(",");
@@ -174,6 +182,11 @@ export default function HomePage() {
 
       {/* ─── MEILLEURES VENTES ─── */}
       <ProductRail title="Meilleures ventes" viewAllHref="/search" products={bestSellers} loading={loadingBestSellers} />
+
+      {/* ─── RECOMMANDÉ POUR VOUS (connecté uniquement) ─── */}
+      {user && (
+        <ProductRail title="Recommandé pour vous" products={recommendations} loading={loadingRecommendations} />
+      )}
 
       {/* ─── NOUVEAUTÉS ─── */}
       <section className="mx-auto max-w-7xl px-4 py-6">

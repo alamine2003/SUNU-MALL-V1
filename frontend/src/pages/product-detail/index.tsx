@@ -12,6 +12,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StarRating } from "@/components/ui/StarRating";
 import { QuantityStepper } from "@/components/marketplace/QuantityStepper";
+import { ProductRail } from "@/components/marketplace/ProductRail";
 import { useAuthStore } from "@/store/authStore";
 import { useGuestCheckoutStore } from "@/store/guestCheckoutStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -37,6 +38,10 @@ export default function ProductDetailPage() {
   const { data: product, loading } = useAsync(() => catalogApi.getProduct(id!), [id]);
   const { data: reviews, refetch: refetchReviews } = useAsync(
     () => (id ? catalogApi.listReviews(id) : Promise.resolve([])),
+    [id],
+  );
+  const { data: similarProducts, loading: loadingSimilar } = useAsync(
+    () => (id ? catalogApi.listSimilarProducts(id) : Promise.resolve([])),
     [id],
   );
 
@@ -282,6 +287,8 @@ export default function ProductDetailPage() {
           </div>
         )}
       </Card>
+
+      <ProductRail title="Produits similaires" products={similarProducts} loading={loadingSimilar} />
     </div>
   );
 }
