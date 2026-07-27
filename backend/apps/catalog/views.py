@@ -15,8 +15,6 @@ from .serializers import (
 from apps.users.permissions import IsAdmin, IsStoreOwnerOrAdmin
 from apps.users.models import Role
 from apps.monetization.models import Notification, SponsoredProduct
-from django.core.mail import send_mail
-from django.conf import settings
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -241,24 +239,14 @@ class StoreViewSet(viewsets.ModelViewSet):
         instance.delete()
 
     def _notify_owner(self, store, subject, message):
-        Notification.objects.create(
+        notification = Notification.objects.create(
             user=store.owner,
             channel=Notification.Channel.EMAIL,
             subject=subject,
             message=message,
-            status=Notification.Status.PENDING,
-            metadata={"store_id": str(store.id), "store_status": store.status}
+            metadata={"store_id": str(store.id), "store_status": store.status},
         )
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [store.owner.email],
-                fail_silently=True,
-            )
-        except Exception:
-            pass
+        notification.send()
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):
