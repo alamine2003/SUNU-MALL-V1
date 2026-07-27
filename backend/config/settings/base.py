@@ -118,6 +118,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Chaque appel coûte réellement de l'argent (API Anthropic) : limite
+        # volontairement basse pour éviter qu'un usage abusif ne fasse
+        # exploser la facture. Ne s'applique qu'aux vues qui déclarent
+        # throttle_scope = "ai" (apps/ia/views.py) — aucune autre vue du
+        # projet n'a de scope "ai", donc ce throttle ne les affecte pas.
+        "ai": "20/hour",
+    },
 }
 
 # DRF Spectacular (Swagger/OpenAPI)
@@ -199,3 +210,8 @@ PAYMENT_SANDBOX = config("PAYMENT_SANDBOX", default=True, cast=bool)
 WAVE_API_KEY = config("WAVE_API_KEY", default="")
 ORANGE_MONEY_API_KEY = config("ORANGE_MONEY_API_KEY", default="")
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3004")
+
+# --- IA (apps/ia/) : génération de description produit, assistant client ---
+# Tant qu'aucune clé n'est fournie, les endpoints IA répondent une erreur
+# claire (503) plutôt que de planter — voir apps/ia/services.py.
+ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")

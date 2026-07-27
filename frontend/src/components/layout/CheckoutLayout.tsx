@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Check } from "lucide-react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { MarketHeader } from "@/components/layout/MarketHeader";
+import { SupportChatWidget } from "@/components/support/SupportChatWidget";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -65,6 +66,7 @@ export function CheckoutLayout() {
       <main className="mx-auto max-w-4xl px-4 py-6">
         <Outlet />
       </main>
+      <SupportChatWidget />
     </div>
   );
 

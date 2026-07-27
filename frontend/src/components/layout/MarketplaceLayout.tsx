@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { MarketHeader } from "@/components/layout/MarketHeader";
 import { Footer } from "@/components/layout/Footer";
 import { GuestCheckoutModal } from "@/components/auth/GuestCheckoutModal";
+import { SupportChatWidget } from "@/components/support/SupportChatWidget";
 
 export function MarketplaceLayout() {
   return (
@@ -12,6 +13,7 @@ export function MarketplaceLayout() {
       </main>
       <Footer />
       <GuestCheckoutModal />
+      <SupportChatWidget />
     </div>
   );
 }
