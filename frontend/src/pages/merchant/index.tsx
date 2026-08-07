@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Package, ShoppingBag, Store as StoreIcon, Wallet } from "lucide-react";
+import { ChevronRight, Clock, Package, ShoppingBag, Store as StoreIcon, TriangleAlert, Wallet } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as ordersApi from "@/api/orders";
@@ -91,14 +91,25 @@ export default function MerchantDashboardPage() {
       </div>
 
       {own.map((store) => (
-        <Card key={store.id} className="flex items-center justify-between">
-          <div>
+        <Card key={store.id} className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
             <p className="font-semibold text-ink">{store.name}</p>
-            <p className="text-xs text-muted-foreground">Statut</p>
+            <Badge variant={store.status === "active" ? "success" : store.status === "suspended" ? "danger" : "warning"}>
+              {store.status === "active" ? "Approuvée" : store.status === "suspended" ? "Rejetée" : "En attente de validation"}
+            </Badge>
           </div>
-          <Badge variant={store.status === "active" ? "success" : store.status === "suspended" ? "danger" : "warning"}>
-            {store.status}
-          </Badge>
+          {store.status === "inactive" && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              Votre boutique est en cours de vérification par notre équipe.
+            </p>
+          )}
+          {store.status === "suspended" && store.rejection_reason && (
+            <p className="flex items-center gap-1.5 text-xs text-danger">
+              <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+              Raison : {store.rejection_reason}
+            </p>
+          )}
         </Card>
       ))}
 

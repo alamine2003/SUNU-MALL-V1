@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { CheckCircle2, CreditCard, FlaskConical, Smartphone, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, CreditCard, FlaskConical, TriangleAlert, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import * as ordersApi from "@/api/orders";
@@ -9,12 +9,9 @@ import { useCheckoutStore } from "@/store/checkoutStore";
 import { formatPrice } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import type { Order } from "@/types";
+import { PAYMENT_METHODS } from "@/lib/paymentMethods";
 
-const METHODS = [
-  { id: "wave" as const, label: "Wave", icon: Smartphone },
-  { id: "orange_money" as const, label: "Orange Money", icon: Smartphone },
-  { id: "card" as const, label: "Carte bancaire", icon: CreditCard },
-];
+const METHODS = PAYMENT_METHODS;
 
 export default function CheckoutPaymentPage() {
   const navigate = useNavigate();
@@ -144,8 +141,12 @@ export default function CheckoutPaymentPage() {
               className={paymentMethod === method.id ? "border-orange ring-1 ring-orange" : ""}
             >
               <div className="flex items-center gap-4">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-orange">
-                  <method.icon className="h-5 w-5" />
+                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-accent text-orange">
+                  {method.image ? (
+                    <img src={method.image} alt={method.label} className="h-full w-full object-cover" />
+                  ) : (
+                    method.icon && <method.icon className="h-5 w-5" />
+                  )}
                 </span>
                 <p className="font-semibold text-ink">{method.label}</p>
               </div>

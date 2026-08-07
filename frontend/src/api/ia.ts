@@ -19,7 +19,7 @@ export interface ChatMessage {
 }
 
 export function sendChatMessage(payload: { message: string; history: ChatMessage[] }) {
-  return apiPost<{ reply: string }>("/ia/chat/", payload);
+  return apiPost<{ reply: string; products: Product[] }>("/ia/chat/", payload);
 }
 
 /**

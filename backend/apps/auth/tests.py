@@ -324,9 +324,13 @@ class AuthTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.is_verified)
 
-    def test_verify_email_same_token_cannot_be_used_twice(self):
+    def test_verify_email_same_token_reused_after_verified_is_idempotent(self):
         """
-        Teste qu'un token de vérification ne peut pas être réutilisé.
+        Un second appel avec le même lien, une fois le compte déjà vérifié,
+        renvoie un succès (idempotent) plutôt qu'une erreur — sans ça, un
+        double déclenchement légitime (React StrictMode en dev, un client
+        mail qui pré-visite le lien pour le scanner) affiche à tort un échec
+        alors que la vérification a bien eu lieu.
         """
         user = User.objects.create_user(
             username='testuser',
@@ -341,8 +345,8 @@ class AuthTests(TestCase):
         second_response = self.client.get(self.verify_email_url, {'uid': uid, 'token': token})
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('error', second_response.data)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertIn('message', second_response.data)
 
     def test_verify_email_invalid_token(self):
         """

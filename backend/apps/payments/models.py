@@ -2,9 +2,12 @@
 Paiements, commissions, transactions et remboursements.
 """
 import uuid
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 from apps.orders.models import Order
+from apps.monetization.models import Invoice, Subscription
 
 
 class PaymentService:
@@ -31,7 +34,7 @@ class CommissionRule(models.Model):
         ).filter(
             models.Q(valid_to__isnull=True) | models.Q(valid_to__gte=now)
         ).first()
-        return rule.percentage if rule else 0
+        return rule.percentage if rule else Decimal("0")
 
     def __str__(self):
         return f"{self.applies_to} - {self.percentage}%"
@@ -45,7 +48,13 @@ class Payment(models.Model):
         REFUNDED = 'refunded', 'Refunded'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    # Un paiement règle soit une commande, soit un abonnement — jamais les
+    # deux (contrainte ci-dessous) : d'où les deux FK optionnelles plutôt
+    # qu'une seule relation polymorphe, plus simple à requêter/valider.
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment', null=True, blank=True)
+    subscription = models.OneToOneField(
+        Subscription, on_delete=models.CASCADE, related_name='payment', null=True, blank=True
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=100)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
@@ -56,20 +65,45 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(order__isnull=False, subscription__isnull=True)
+                    | models.Q(order__isnull=True, subscription__isnull=False)
+                ),
+                name='payment_targets_order_xor_subscription',
+            )
+        ]
 
     def mark_succeeded(self):
         self.status = self.Status.SUCCESS
         self.paid_at = timezone.now()
         self.save()
-        # Create transactions
-        Transaction.create_for_payment(self)
+        if self.subscription_id:
+            self._activate_subscription()
+        else:
+            Transaction.create_for_payment(self)
+
+    def _activate_subscription(self):
+        subscription = self.subscription
+        subscription.status = Subscription.Status.ACTIVE
+        subscription.save(update_fields=["status"])
+        today = timezone.now().date()
+        invoice = Invoice.objects.create(
+            subscription=subscription, amount=self.amount,
+            status=Invoice.Status.ISSUED, issued_at=today, due_at=today,
+        )
+        invoice.mark_paid()
+        subscription.notify_activated()
 
     def mark_failed(self):
         self.status = self.Status.FAILED
         self.save()
+        if self.subscription_id:
+            self.subscription.cancel()
 
     def __str__(self):
-        return f"Payment {self.id} - {self.order.id}"
+        return f"Payment {self.id} - {self.order_id or self.subscription_id}"
 
 
 class Transaction(models.Model):
@@ -82,15 +116,40 @@ class Transaction(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='transactions')
     type = models.CharField(max_length=50, choices=Type.choices)
     payee_type = models.CharField(max_length=100)
-    payee_id = models.UUIDField()
+    # Null pour la part plateforme (COMMISSION) : ce n'est pas un utilisateur,
+    # il n'y a donc pas d'UUID réel à renseigner.
+    payee_id = models.UUIDField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, default='completed')
     created_at = models.DateTimeField(auto_now_add=True)
 
     @staticmethod
     def create_for_payment(payment):
-        # Implement transaction creation logic here
-        pass
+        """
+        Ventile un paiement de commande réussi entre le commerçant (part
+        vente) et la plateforme (commission), selon le taux configuré dans
+        CommissionRule (0% si aucune règle "order" n'est active). Ne
+        s'applique qu'aux paiements de commande — un paiement d'abonnement
+        est déjà entièrement un revenu plateforme, tracé via Invoice.
+        """
+        if payment.order_id is None:
+            return
+
+        rate = CommissionRule.current_rate("order")
+        commission_amount = (payment.amount * rate / Decimal("100")).quantize(Decimal("0.01"))
+        seller_amount = payment.amount - commission_amount
+
+        Transaction.objects.create(
+            payment=payment, type=Transaction.Type.SALE,
+            payee_type="merchant", payee_id=payment.order.store.owner_id,
+            amount=seller_amount,
+        )
+        if commission_amount > 0:
+            Transaction.objects.create(
+                payment=payment, type=Transaction.Type.COMMISSION,
+                payee_type="platform", payee_id=None,
+                amount=commission_amount,
+            )
 
     def __str__(self):
         return f"Transaction {self.id} - {self.type}"
@@ -113,8 +172,49 @@ class Refund(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def process(self):
-        # Implement refund processing logic here
-        pass
+        """
+        Marque le remboursement traité : passe le paiement à "refunded",
+        contre-passe chaque transaction déjà enregistrée (vente + commission)
+        par une transaction REFUND de signe opposé, puis prévient le client.
+        Appelé par un admin (voir RefundViewSet.process) — un remboursement
+        Wave/Orange Money/carte n'est pas un appel API instantané ici, un
+        humain confirme que l'argent a bien été renvoyé avant ce statut.
+        """
+        self.status = self.Status.COMPLETED
+        self.refunded_at = timezone.now()
+        self.save()
+
+        payment = self.payment
+        payment.status = Payment.Status.REFUNDED
+        payment.save(update_fields=["status"])
+
+        for original in payment.transactions.exclude(type=Transaction.Type.REFUND):
+            Transaction.objects.create(
+                payment=payment, type=Transaction.Type.REFUND,
+                payee_type=original.payee_type, payee_id=original.payee_id,
+                amount=-original.amount,
+            )
+
+        self._notify_customer()
+
+    def _notify_customer(self):
+        from apps.monetization.models import Notification
+
+        order = self.payment.order
+        if not order:
+            return
+        subject = f"Remboursement traité — {order.store.name}"
+        message = (
+            f"Bonjour {order.customer.first_name or order.customer.email},\n\n"
+            f"Le remboursement de {self.amount} FCFA pour votre commande n°{str(order.id)[:8]} "
+            "a bien été traité.\n\nMerci de votre compréhension."
+        )
+        notification = Notification.objects.create(
+            user=order.customer, channel=Notification.Channel.EMAIL,
+            subject=subject, message=message,
+            metadata={"refund_id": str(self.id), "order_id": str(order.id)},
+        )
+        notification.send()
 
     def __str__(self):
         return f"Refund {self.id} - {self.payment.id}"

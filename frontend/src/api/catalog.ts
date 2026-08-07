@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import type { Category, Paginated, Product, ProductImage, ProductVariant, Review, Store } from "@/types";
+import type { Category, Paginated, Product, ProductImage, ProductVariant, Review, Store, StoreCategory, StoreCategoryCount } from "@/types";
 
 export interface StoreSettings {
   id: string;
@@ -34,8 +34,20 @@ export async function listMyStores() {
   return data.results;
 }
 
-export function createStore(payload: { name: string; category?: string | null }) {
+export function createStore(payload: {
+  name: string;
+  category?: number | null;
+  phone?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+}) {
   return apiPost<Store>("/catalog/stores/", payload);
+}
+
+/** Catégories de boutique (Électronique, Mode, ...) — pour le formulaire de création de boutique. */
+export async function listStoreCategories() {
+  return apiGet<StoreCategory[]>("/catalog/store-categories/");
 }
 
 export function approveStore(id: string) {
@@ -48,6 +60,18 @@ export function rejectStore(id: string, reason?: string) {
 
 export function updateStorePosition(storeId: string, payload: { latitude: number; longitude: number }) {
   return apiPatch<Store>(`/catalog/stores/${storeId}/`, payload);
+}
+
+export function uploadStoreLogo(storeId: string, file: File) {
+  const formData = new FormData();
+  formData.append("logo", file);
+  return apiPost<Store>(`/catalog/stores/${storeId}/logo/`, formData);
+}
+
+export function uploadStoreBanner(storeId: string, file: File) {
+  const formData = new FormData();
+  formData.append("banner", file);
+  return apiPost<Store>(`/catalog/stores/${storeId}/banner/`, formData);
 }
 
 export function getStoreSettings(storeId: string) {
@@ -105,13 +129,26 @@ export async function searchProducts(params?: {
 }
 
 /** Comme `listStores`, mais renvoie l'enveloppe de pagination DRF complète, pour l'annuaire public des boutiques. */
-export async function listStoresPaginated(params?: { search?: string; status?: string; page?: number }) {
+export async function listStoresPaginated(params?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  productCategory?: number | string;
+  ordering?: string;
+}) {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.status) qs.set("status", params.status);
   if (params?.page) qs.set("page", String(params.page));
+  if (params?.productCategory) qs.set("product_category", String(params.productCategory));
+  if (params?.ordering) qs.set("ordering", params.ordering);
   const query = qs.toString();
   return apiGet<Paginated<Store>>(`/catalog/stores/${query ? `?${query}` : ""}`);
+}
+
+/** Catégories produit réellement représentées par au moins une boutique active, avec leur nombre réel de boutiques — pour le filtre de /boutiques. */
+export async function listStoreCategoryCounts() {
+  return apiGet<StoreCategoryCount[]>("/catalog/categories/store-counts/");
 }
 
 export function getProduct(id: string) {

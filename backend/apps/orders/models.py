@@ -122,6 +122,33 @@ class Delivery(models.Model):
         self.delivered_at = timezone.now()
         self.save()
 
+    def cancel(self):
+        """Annule la course (appelé quand le client annule sa commande) et prévient le livreur s'il en avait déjà un."""
+        had_driver = self.driver_id is not None
+        self.status = self.Status.CANCELLED
+        self.save(update_fields=["status"])
+        if had_driver:
+            self._notify_driver_cancelled()
+
+    def _notify_driver_cancelled(self):
+        from apps.monetization.models import Notification
+
+        subject = "Course annulée"
+        message = (
+            f"Bonjour {self.driver.user.first_name},\n\n"
+            f"La commande {str(self.order.id)[:8]} qui vous avait été affectée vient d'être annulée "
+            "par le client. Vous n'avez plus besoin d'intervenir sur cette livraison.\n\n"
+            "Merci."
+        )
+        notification = Notification.objects.create(
+            user=self.driver.user,
+            channel=Notification.Channel.EMAIL,
+            subject=subject,
+            message=message,
+            metadata={"delivery_id": str(self.id), "order_id": str(self.order.id)},
+        )
+        notification.send()
+
     def __str__(self):
         return f"Delivery for Order {self.order.id}"
 
@@ -206,6 +233,24 @@ class Order(models.Model):
         )
         from apps.analytics.models import SalesStatistic
         SalesStatistic.compute_for_store(self.store, self.created_at.date())
+
+    def notify_merchant_cancelled(self):
+        from apps.monetization.models import Notification
+
+        subject = f"Commande annulée — {self.store.name}"
+        message = (
+            f"Bonjour,\n\n"
+            f"La commande n°{str(self.id)[:8]} ({self.total_amount} FCFA) vient d'être annulée par le client.\n\n"
+            "Consultez votre tableau de bord pour plus de détails."
+        )
+        notification = Notification.objects.create(
+            user=self.store.owner,
+            channel=Notification.Channel.EMAIL,
+            subject=subject,
+            message=message,
+            metadata={"order_id": str(self.id)},
+        )
+        notification.send()
 
     def __str__(self):
         return f"Order {self.id} - {self.customer.email}"

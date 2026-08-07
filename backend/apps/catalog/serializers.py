@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Inventory, Product, ProductImage, ProductVariant, Review, Store, StoreSettings
+from .models import Category, Inventory, Product, ProductImage, ProductVariant, Review, Store, StoreCategory, StoreSettings
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -12,6 +12,13 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj):
         return obj.image.url if obj.image else None
+
+
+class StoreCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoreCategory
+        fields = ["id", "name"]
+        read_only_fields = ["id"]
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -27,14 +34,45 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class StoreSerializer(serializers.ModelSerializer):
     owner_email = serializers.EmailField(source='owner.email', read_only=True)
+    logo_url = serializers.SerializerMethodField()
+    banner_url = serializers.SerializerMethodField()
+    category_detail = StoreCategorySerializer(source='category', read_only=True)
+    # Alimentés par l'annotation Subquery de StoreViewSet.get_queryset (moyenne
+    # des notes / nombre d'avis réels sur les produits de la boutique) —
+    # absents (None) si la vue qui a produit l'instance ne les a pas annotés.
+    rating = serializers.FloatField(read_only=True, default=None)
+    review_count = serializers.IntegerField(read_only=True, default=0)
+    category_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Store
         fields = [
-            "id", "owner", "owner_email", "category", "name",
-            "status", "latitude", "longitude", "created_at", "updated_at"
+            "id", "owner", "owner_email", "category", "category_detail", "name",
+            "phone", "description", "address", "city", "rejection_reason",
+            "logo_url", "banner_url", "status", "latitude", "longitude", "rating", "review_count",
+            "category_names", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "owner", "created_at", "updated_at", "owner_email"]
+        read_only_fields = [
+            "id", "owner", "created_at", "updated_at", "owner_email",
+            "logo_url", "banner_url", "category_detail", "rejection_reason",
+        ]
+
+    def get_logo_url(self, obj):
+        return obj.logo.url if obj.logo else None
+
+    def get_banner_url(self, obj):
+        return obj.banner.url if obj.banner else None
+
+    def get_category_names(self, obj):
+        # .order_by() vide avant .distinct() : sans ça, le tri par défaut de
+        # Product (Meta.ordering = ['-created_at']) s'invite dans le SQL et
+        # empêche la déduplication (chaque produit garde sa propre ligne).
+        return list(
+            obj.products.filter(status=Product.Status.ACTIVE, category__isnull=False)
+            .order_by()
+            .values_list("category__name", flat=True)
+            .distinct()
+        )
 
 
 class StoreSettingsSerializer(serializers.ModelSerializer):

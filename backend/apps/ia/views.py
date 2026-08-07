@@ -77,11 +77,11 @@ class ChatView(GenericAPIView):
         history = [{"role": m["role"], "content": m["content"]} for m in data["history"][-MAX_CHAT_HISTORY:]]
 
         try:
-            reply = chat_reply(history, data["message"])
+            reply, products = chat_reply(history, data["message"])
         except AIServiceError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        return Response({"reply": reply})
+        return Response({"reply": reply, "products": ProductSerializer(products, many=True).data})
 
 
 class RecommendationViewSet(viewsets.ReadOnlyModelViewSet):

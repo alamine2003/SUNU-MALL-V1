@@ -1,18 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Send, TriangleAlert, X } from "lucide-react";
+import { ImageOff, MessageCircle, Send, TriangleAlert, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import * as iaApi from "@/api/ia";
 import type { ChatMessage } from "@/api/ia";
+import type { Product } from "@/types";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
-  content: "Bonjour 👋 Je suis l'assistant Sunu Mall. Une question sur une commande, la livraison ou le paiement ?",
+  content:
+    "Bonjour 👋 Je suis l'assistant Sunu Mall. Une question sur une commande, la livraison, le paiement — ou vous cherchez un produit précis (ex. « un téléphone à moins de 100 000 FCFA ») ?",
 };
+
+interface DisplayMessage extends ChatMessage {
+  products?: Product[];
+}
 
 export function SupportChatWidget() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,15 +34,15 @@ export function SupportChatWidget() {
     const text = input.trim();
     if (!text || sending) return;
 
-    const history = messages.filter((m) => m !== WELCOME_MESSAGE);
-    const nextMessages = [...messages, { role: "user", content: text } as ChatMessage];
+    const history = messages.filter((m) => m !== WELCOME_MESSAGE).map(({ role, content }) => ({ role, content }));
+    const nextMessages = [...messages, { role: "user", content: text } as DisplayMessage];
     setMessages(nextMessages);
     setInput("");
     setError(null);
     setSending(true);
     try {
-      const { reply } = await iaApi.sendChatMessage({ message: text, history });
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const { reply, products } = await iaApi.sendChatMessage({ message: text, history });
+      setMessages((prev) => [...prev, { role: "assistant", content: reply, products }]);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -60,7 +67,7 @@ export function SupportChatWidget() {
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {messages.map((m, i) => (
-              <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+              <div key={i} className={cn("flex flex-col gap-2", m.role === "user" ? "items-end" : "items-start")}>
                 <p
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
@@ -69,6 +76,29 @@ export function SupportChatWidget() {
                 >
                   {m.content}
                 </p>
+                {m.products && m.products.length > 0 && (
+                  <div className="flex w-full max-w-[85%] flex-col gap-1.5">
+                    {m.products.map((p) => (
+                      <Link
+                        key={p.id}
+                        to={`/product/${p.id}`}
+                        className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white p-2 shadow-sm transition-colors hover:border-orange/40"
+                      >
+                        <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-gray-50">
+                          {p.images[0]?.url ? (
+                            <img src={p.images[0].url} alt={p.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <ImageOff className="h-4 w-4 text-gray-300" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-gray-800">{p.name}</p>
+                          <p className="text-xs font-bold text-orange">{formatPrice(p.base_price)}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {sending && <p className="text-xs text-muted-foreground">L'assistant écrit…</p>}

@@ -1,9 +1,18 @@
 import { apiGet, apiPost } from "@/lib/api";
-import type { Paginated, Payment } from "@/types";
+import type { Paginated, Payment, Refund } from "@/types";
 
 export function listPayments(params?: { page?: number }) {
   const qs = params?.page ? `?page=${params.page}` : "";
   return apiGet<Paginated<Payment>>(`/payments/${qs}`);
+}
+
+export function listRefunds(params?: { page?: number }) {
+  const qs = params?.page ? `?page=${params.page}` : "";
+  return apiGet<Paginated<Refund>>(`/payments/refunds/${qs}`);
+}
+
+export function processRefund(refundId: number) {
+  return apiPost<Refund>(`/payments/refunds/${refundId}/process/`);
 }
 
 export interface InitiatePaymentResult {

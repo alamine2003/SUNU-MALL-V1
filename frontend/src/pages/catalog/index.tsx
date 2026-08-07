@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ImagePlus, Megaphone, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ImagePlus, Megaphone, Package, Pencil, Plus, Trash2, TriangleAlert, Upload } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as monetizationApi from "@/api/monetization";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SponsorProductModal } from "@/components/merchant/SponsorProductModal";
+import { ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
 
@@ -24,6 +25,7 @@ export default function CatalogPage() {
   const storeIds = (own ?? []).map((s) => s.id);
   const [sponsorTarget, setSponsorTarget] = useState<Product | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<string | null>(null);
 
@@ -50,8 +52,14 @@ export default function CatalogPage() {
   }
 
   async function publish(id: string) {
-    await catalogApi.updateProduct(id, { status: "active" });
-    refetch();
+    setPublishError(null);
+    try {
+      await catalogApi.updateProduct(id, { status: "active" });
+      refetch();
+    } catch (err) {
+      const data = err instanceof ApiError ? (err.data as { detail?: string }) : null;
+      setPublishError(data?.detail ?? "Impossible de publier ce produit.");
+    }
   }
 
   async function stopSponsoring(id: string) {
@@ -100,6 +108,13 @@ export default function CatalogPage() {
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
+
+      {publishError && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          {publishError}
+        </div>
+      )}
 
       {loading ? (
         <Spinner label="Chargement du catalogue…" />

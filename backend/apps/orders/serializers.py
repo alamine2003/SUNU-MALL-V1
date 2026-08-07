@@ -101,7 +101,13 @@ class OrderSerializer(serializers.ModelSerializer):
         payment = getattr(obj, "payment", None)
         if not payment:
             return None
-        return {"id": payment.id, "method": payment.method, "status": payment.status}
+        refund = payment.refunds.order_by("-created_at").first()
+        refund_data = (
+            {"id": refund.id, "status": refund.status, "amount": str(refund.amount), "refunded_at": refund.refunded_at}
+            if refund
+            else None
+        )
+        return {"id": payment.id, "method": payment.method, "status": payment.status, "refund": refund_data}
 
 
 class CheckoutItemInputSerializer(serializers.Serializer):

@@ -26,6 +26,18 @@ class Store(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stores')
     category = models.ForeignKey(StoreCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='stores')
     name = models.CharField(max_length=255)
+    # Informations soumises à la création, pour que l'admin ait de quoi
+    # évaluer une demande à l'approbation (avant ça : uniquement le nom).
+    phone = models.CharField(max_length=20, blank=True)
+    description = models.TextField(blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    # Raison du dernier rejet, affichée au commerçant — sans ça, la raison
+    # n'existait que dans le corps de l'email envoyé, jamais consultable
+    # depuis le tableau de bord lui-même.
+    rejection_reason = models.TextField(blank=True)
+    logo = models.ImageField(upload_to='stores/', blank=True, null=True)
+    banner = models.ImageField(upload_to='stores/banners/', blank=True, null=True)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.INACTIVE)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)

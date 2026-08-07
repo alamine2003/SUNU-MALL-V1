@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { Invoice, Notification, Paginated, SponsoredProduct, Subscription, SubscriptionPlan } from "@/types";
+import type { Invoice, Notification, Paginated, Payment, SponsoredProduct, Subscription, SubscriptionPlan } from "@/types";
 
 export async function listNotifications() {
   const data = await apiGet<Paginated<Notification>>("/monetization/notifications/");
@@ -24,8 +24,15 @@ export async function listSubscriptions() {
   return data.results;
 }
 
-export function subscribe(planId: string) {
-  return apiPost<Subscription>("/monetization/subscriptions/", { plan: planId });
+/**
+ * Crée l'abonnement (en attente) et son paiement associé. Le paiement est
+ * `null` pour une offre gratuite, déjà activée directement côté serveur.
+ */
+export function subscribe(planId: string, paymentMethod: "wave" | "orange_money" | "card" = "wave") {
+  return apiPost<{ subscription: Subscription; payment: Payment | null }>(
+    `/monetization/subscription-plans/${planId}/subscribe/`,
+    { payment_method: paymentMethod },
+  );
 }
 
 export function cancelSubscription(id: string) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Package, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, Package, ShoppingBag, Star, TrendingUp, Truck, Wallet } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import * as analyticsApi from "@/api/analytics";
@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TrendChart } from "@/components/ui/TrendChart";
+import { DonutChart } from "@/components/ui/DonutChart";
 import { formatPrice } from "@/lib/utils";
 
 const TREND_DAYS = 14;
@@ -27,6 +28,10 @@ export default function AnalyticsPage() {
   );
   const { data: topProducts, loading: loadingTop } = useAsync(
     () => (storeId ? catalogApi.listBestSellers({ store: storeId }) : Promise.resolve([])),
+    [storeId],
+  );
+  const { data: summary, loading: loadingSummary } = useAsync(
+    () => (storeId ? analyticsApi.getStoreSummary(storeId) : Promise.resolve(null)),
     [storeId],
   );
 
@@ -52,7 +57,7 @@ export default function AnalyticsPage() {
     return <EmptyState icon={BarChart3} title="Aucune boutique" description="Créez d'abord votre boutique pour voir ses statistiques." />;
   }
 
-  const loading = loadingStats || loadingTop;
+  const loading = loadingStats || loadingTop || loadingSummary;
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,37 +82,70 @@ export default function AnalyticsPage() {
         <Spinner label="Chargement des statistiques…" />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Card className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-orange">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col justify-between rounded-2xl bg-gradient-navy p-5 text-white shadow-navy-glow lg:col-span-1">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10">
                 <Wallet className="h-5 w-5" />
               </span>
-              <div>
-                <p className="text-xs text-muted-foreground">Chiffre d'affaires (30 derniers jours)</p>
-                <p className="text-lg font-semibold text-ink">{formatPrice(stats.revenue)}</p>
+              <div className="mt-4">
+                <p className="text-xs text-white/60">Chiffre d'affaires (30j)</p>
+                <p className="font-display text-2xl font-bold">{formatPrice(summary?.revenue_30d ?? 0)}</p>
               </div>
-            </Card>
+            </div>
             <Card className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-orange">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-orange">
                 <Package className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs text-muted-foreground">Commandes (30 derniers jours)</p>
-                <p className="text-lg font-semibold text-ink">{stats.orderCount}</p>
+                <p className="text-xs text-muted-foreground">Commandes (30j)</p>
+                <p className="text-lg font-semibold text-ink">{summary?.orders_30d ?? 0}</p>
+              </div>
+            </Card>
+            <Card className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-orange">
+                <ShoppingBag className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs text-muted-foreground">Panier moyen</p>
+                <p className="text-lg font-semibold text-ink">{formatPrice(summary?.avg_order_value_30d ?? 0)}</p>
+              </div>
+            </Card>
+            <Card className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-orange">
+                <Star className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs text-muted-foreground">Note moyenne</p>
+                <p className="text-lg font-semibold text-ink">
+                  {summary?.avg_rating != null ? `${summary.avg_rating} / 5` : "—"}
+                </p>
               </div>
             </Card>
           </div>
 
-          <Card>
-            <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
-              <Wallet className="h-4 w-4 text-orange" /> Chiffre d'affaires ({TREND_DAYS} derniers jours)
-            </h2>
-            {stats.revenue === 0 ? (
-              <EmptyState icon={Wallet} title="Pas encore de ventes" description="L'évolution de votre chiffre d'affaires apparaîtra ici." />
-            ) : (
-              <TrendChart data={stats.revenueByDay} valueFormatter={formatPrice} />
-            )}
-          </Card>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
+                <Wallet className="h-4 w-4 text-orange" /> Chiffre d'affaires ({TREND_DAYS} derniers jours)
+              </h2>
+              {stats.revenue === 0 ? (
+                <EmptyState icon={Wallet} title="Pas encore de ventes" description="L'évolution de votre chiffre d'affaires apparaîtra ici." />
+              ) : (
+                <TrendChart data={stats.revenueByDay} valueFormatter={formatPrice} />
+              )}
+            </Card>
+
+            <Card className="flex flex-col items-center justify-center">
+              <h2 className="mb-4 flex w-full items-center gap-2 font-semibold text-ink">
+                <Truck className="h-4 w-4 text-orange" /> Taux de livraison
+              </h2>
+              {!summary || summary.orders_30d === 0 ? (
+                <EmptyState icon={Truck} title="Pas encore de commandes" description="Le taux de livraison apparaîtra ici." />
+              ) : (
+                <DonutChart percentage={summary.delivered_rate} label="Livrées" remainderLabel="En cours" />
+              )}
+            </Card>
+          </div>
 
           <Card>
             <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">

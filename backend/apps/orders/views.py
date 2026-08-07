@@ -13,7 +13,7 @@ from .serializers import (
     DeliveryTrackingSerializer, DriverSerializer, OrderSerializer,
 )
 from apps.catalog.models import ProductVariant, Store
-from apps.payments.models import Payment
+from apps.payments.models import Payment, Refund
 from apps.shopping.models import CartItem
 from apps.users.models import Role
 
@@ -135,8 +135,19 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.change_status(Order.Status.CANCELLED)
         delivery = getattr(order, "delivery", None)
         if delivery and delivery.status in [Delivery.Status.PENDING, Delivery.Status.ASSIGNED]:
-            delivery.status = Delivery.Status.CANCELLED
-            delivery.save(update_fields=["status"])
+            delivery.cancel()
+        order.notify_merchant_cancelled()
+
+        payment = getattr(order, "payment", None)
+        if payment and payment.status == Payment.Status.SUCCESS:
+            # La commande était déjà payée : sans ça, l'argent restait
+            # marqué "encaissé" sans que rien n'indique qu'il faut le
+            # rendre. Le remboursement est créé "pending" ici ; un admin le
+            # traite ensuite (voir RefundViewSet.process) — un remboursement
+            # Wave/Orange Money/carte n'est pas instantané.
+            Refund.objects.create(
+                payment=payment, amount=payment.amount, reason="Commande annulée par le client",
+            )
 
         return Response(OrderSerializer(order).data)
 

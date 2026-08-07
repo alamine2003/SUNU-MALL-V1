@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Mail, PackageSearch, Store as StoreIcon } from "lucide-react";
+import { Mail, PackageSearch, Star, Store as StoreIcon } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import { ProductCard } from "@/components/marketplace/ProductCard";
@@ -46,10 +46,22 @@ export default function BoutiqueDetailPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8">
       <Breadcrumbs items={[{ label: "Boutiques", to: "/boutiques" }, { label: store.name }]} />
 
-      <div className="navy-panel flex items-center gap-4 rounded-2xl p-6 shadow-navy-glow">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-white/10 text-lg font-bold">
-          {store.name.slice(0, 2).toUpperCase()}
-        </span>
+      <div
+        className={
+          store.banner_url
+            ? "relative flex items-center gap-4 overflow-hidden rounded-2xl bg-cover bg-center p-6 shadow-navy-glow"
+            : "navy-panel flex items-center gap-4 rounded-2xl p-6 shadow-navy-glow"
+        }
+        style={store.banner_url ? { backgroundImage: `url(${store.banner_url})` } : undefined}
+      >
+        {store.banner_url && <div className="absolute inset-0 bg-navy/70" />}
+        {store.logo_url ? (
+          <img src={store.logo_url} alt={store.name} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+        ) : (
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-white/10 text-lg font-bold">
+            {store.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold">{store.name}</h1>
@@ -62,6 +74,13 @@ export default function BoutiqueDetailPage() {
           <p className="mt-1 flex items-center gap-1.5 text-sm text-white/70">
             <Mail className="h-3.5 w-3.5" /> {store.owner_email}
           </p>
+          {store.rating != null && (
+            <p className="mt-1 flex items-center gap-1 text-sm text-white/70">
+              <Star className="h-3.5 w-3.5 fill-orange text-orange" />
+              <span className="font-semibold text-white">{store.rating.toFixed(1)}</span>
+              <span>({store.review_count} avis)</span>
+            </p>
+          )}
         </div>
       </div>
 

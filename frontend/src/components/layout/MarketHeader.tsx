@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, Heart, LayoutDashboard, LogOut, Search, ShoppingCart, User } from "lucide-react";
+import { ChevronDown, Heart, LayoutDashboard, LogOut, Package, Search, ShoppingCart, User } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { CategoryMenu } from "@/components/marketplace/CategoryMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -86,6 +86,13 @@ export function MarketHeader() {
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <NotificationBell />
 
+          {user?.roles.includes("client") && (
+            <Link to="/orders" className="group relative flex flex-col items-center gap-0.5 px-2 py-1">
+              <Package className="h-5 w-5 text-gray-500 transition-colors group-hover:text-orange" />
+              <span className="hidden text-[10px] text-gray-400 sm:block">Commandes</span>
+            </Link>
+          )}
+
           <Link to="/wishlist" className="group relative flex flex-col items-center gap-0.5 px-2 py-1">
             <div className="relative">
               <Heart className={cn("h-5 w-5 transition-colors", favCount > 0 ? "fill-orange text-orange" : "text-gray-500 group-hover:text-orange")} />
@@ -135,7 +142,7 @@ export function MarketHeader() {
                       <p className="truncate text-xs text-gray-400">{user.email}</p>
                     </div>
                     <Link
-                      to={roleHomePath(user.roles)}
+                      to={user.roles.includes("client") ? "/orders" : roleHomePath(user.roles)}
                       onClick={() => setAccountOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-navy hover:bg-gray-50"
                     >

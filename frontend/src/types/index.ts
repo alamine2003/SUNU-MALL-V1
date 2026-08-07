@@ -29,17 +29,42 @@ export interface Category {
   updated_at: string;
 }
 
+export interface StoreCategory {
+  id: number;
+  name: string;
+}
+
 export interface Store {
   id: string;
   owner: string;
   owner_email: string;
-  category: string | null;
+  category: number | null;
+  category_detail: StoreCategory | null;
   name: string;
+  phone: string;
+  description: string;
+  address: string;
+  city: string;
+  /** Raison du dernier rejet — vide si jamais rejetée ou déjà approuvée. */
+  rejection_reason: string;
+  logo_url: string | null;
+  banner_url: string | null;
   status: "inactive" | "active" | "suspended";
   latitude: string | null;
   longitude: string | null;
+  /** Moyenne réelle des avis produits de la boutique — null si aucun avis. */
+  rating: number | null;
+  review_count: number;
+  /** Catégories produit réellement vendues (dérivé des produits actifs). */
+  category_names: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface StoreCategoryCount {
+  id: number;
+  name: string;
+  store_count: number;
 }
 
 export interface ProductImage {
@@ -191,7 +216,12 @@ export interface Order {
   can_be_cancelled: boolean;
   items: OrderItem[];
   delivery: Delivery;
-  payment: { id: string; method: string; status: "pending" | "success" | "failed" | "refunded" } | null;
+  payment: {
+    id: string;
+    method: string;
+    status: "pending" | "success" | "failed" | "refunded";
+    refund: { id: number; status: Refund["status"]; amount: string; refunded_at: string | null } | null;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -212,6 +242,15 @@ export interface SalesStatistic {
   total_orders: number;
   avg_order_value: string;
   created_at: string;
+}
+
+export interface StoreSummary {
+  revenue_30d: string;
+  orders_30d: number;
+  avg_order_value_30d: string;
+  delivered_rate: number;
+  avg_rating: number | null;
+  review_count: number;
 }
 
 export interface Notification {
@@ -271,10 +310,25 @@ export interface Invoice {
 
 export interface Payment {
   id: string;
-  order: string;
+  order: string | null;
+  subscription: string | null;
   method: "wave" | "orange_money" | "card";
   amount: string;
   status: "pending" | "success" | "failed" | "refunded";
   provider_ref: string;
+  refund: { id: number; status: Refund["status"]; amount: string; refunded_at: string | null } | null;
+  created_at: string;
+}
+
+export interface Refund {
+  id: number;
+  payment: string;
+  order_id: string;
+  store_name: string;
+  customer_email: string;
+  amount: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected" | "completed";
+  refunded_at: string | null;
   created_at: string;
 }

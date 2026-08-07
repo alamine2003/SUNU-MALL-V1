@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +10,16 @@ export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  // React StrictMode (dev) monte/démonte/remonte le composant, ce qui
+  // déclenche cet effet deux fois — sans ce verrou, le second appel
+  // écraserait le résultat du premier (voir aussi le court-circuit
+  // is_verified côté backend, qui couvre le même risque en production).
+  const requested = useRef(false);
 
   useEffect(() => {
+    if (requested.current) return;
+    requested.current = true;
+
     const uid = searchParams.get("uid");
     const token = searchParams.get("token");
     if (!uid || !token) {

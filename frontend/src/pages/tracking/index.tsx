@@ -97,6 +97,19 @@ export default function TrackingPage() {
           </div>
         )}
 
+        {order.payment?.refund && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <Badge variant={order.payment.refund.status === "completed" ? "success" : "warning"}>
+              {order.payment.refund.status === "completed" ? "Remboursé" : "Remboursement en attente"}
+            </Badge>
+            <p className="flex-1 text-xs text-amber-800">
+              {order.payment.refund.status === "completed"
+                ? `Remboursé le ${order.payment.refund.refunded_at ? formatDate(order.payment.refund.refunded_at) : ""}.`
+                : "Votre remboursement est en cours de traitement."}
+            </p>
+          </div>
+        )}
+
         <div className="flex items-start">
           {STEPS.map((step, i) => (
             <div key={step.key} className="flex flex-1 items-center last:flex-none">

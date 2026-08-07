@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, MapPin, Settings, Store as StoreIcon, TriangleAlert } from "lucide-react";
+import { CheckCircle2, ImagePlus, Loader2, MapPin, Settings, Store as StoreIcon, TriangleAlert } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import * as catalogApi from "@/api/catalog";
 import { Card } from "@/components/ui/Card";
@@ -52,6 +52,10 @@ export default function StoreSettingsPage() {
   const [minOrder, setMinOrder] = useState("0");
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!settings) return;
@@ -81,6 +85,38 @@ export default function StoreSettingsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !storeId) return;
+    setUploadingLogo(true);
+    setLogoError(null);
+    try {
+      await catalogApi.uploadStoreLogo(storeId, file);
+      refetchStores();
+    } catch {
+      setLogoError("Impossible d'enregistrer la photo. Réessayez.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !storeId) return;
+    setUploadingBanner(true);
+    setBannerError(null);
+    try {
+      await catalogApi.uploadStoreBanner(storeId, file);
+      refetchStores();
+    } catch {
+      setBannerError("Impossible d'enregistrer la photo. Réessayez.");
+    } finally {
+      setUploadingBanner(false);
     }
   }
 
@@ -140,6 +176,83 @@ export default function StoreSettingsPage() {
         <Spinner label="Chargement des paramètres…" />
       ) : (
         <Card className="flex flex-col gap-5">
+          <div>
+            <p className="mb-3 text-sm font-semibold text-ink">Photo de profil de la boutique</p>
+            <div className="flex items-center gap-4">
+              <label
+                htmlFor="store-logo"
+                className="focus-ring relative grid h-20 w-20 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border border-dashed border-border bg-muted transition-colors hover:border-orange/50"
+              >
+                {selectedStore?.logo_url ? (
+                  <img src={selectedStore.logo_url} alt={selectedStore.name} className="h-full w-full object-cover" />
+                ) : (
+                  <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                )}
+                {uploadingLogo && (
+                  <div className="absolute inset-0 grid place-items-center bg-black/40">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                )}
+              </label>
+              <input
+                id="store-logo"
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                disabled={uploadingLogo}
+                className="hidden"
+              />
+              <p className="text-xs text-muted-foreground">
+                Visible sur votre fiche boutique et dans l'annuaire des boutiques. JPG ou PNG.
+              </p>
+            </div>
+            {logoError && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+                <TriangleAlert className="h-4 w-4 shrink-0" />
+                {logoError}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-3 text-sm font-semibold text-ink">Photo de couverture de la boutique</p>
+            <label
+              htmlFor="store-banner"
+              className="focus-ring relative grid h-28 w-full cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-border bg-muted transition-colors hover:border-orange/50"
+            >
+              {selectedStore?.banner_url ? (
+                <img src={selectedStore.banner_url} alt={selectedStore.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                  <ImagePlus className="h-6 w-6" />
+                  <span className="text-xs">Ajouter une photo de couverture</span>
+                </div>
+              )}
+              {uploadingBanner && (
+                <div className="absolute inset-0 grid place-items-center bg-black/40">
+                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                </div>
+              )}
+            </label>
+            <input
+              id="store-banner"
+              type="file"
+              accept="image/*"
+              onChange={handleBannerChange}
+              disabled={uploadingBanner}
+              className="hidden"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Affichée en arrière-plan de votre fiche boutique et de sa carte dans l'annuaire.
+            </p>
+            {bannerError && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-danger/30 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+                <TriangleAlert className="h-4 w-4 shrink-0" />
+                {bannerError}
+              </div>
+            )}
+          </div>
+
           <div>
             <p className="mb-3 text-sm font-semibold text-ink">Localisation de la boutique</p>
             <p className="mb-3 text-xs text-muted-foreground">

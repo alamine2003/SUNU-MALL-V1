@@ -107,6 +107,10 @@ class SubscriptionPlan(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     billing_cycle = models.CharField(max_length=50)  # monthly, yearly
     features = models.JSONField(default=dict)
+    # Nombre maximum de produits ACTIFS (publiés) par boutique — None = illimité.
+    # Sans ça, "Nombre limité / augmenté / illimité de produits" dans `features`
+    # n'était que du texte marketing jamais réellement appliqué.
+    max_products = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -115,6 +119,9 @@ class SubscriptionPlan(models.Model):
 
 class Subscription(models.Model):
     class Status(models.TextChoices):
+        # En attente de confirmation du paiement (voir apps.payments.Payment) —
+        # une offre gratuite (price=0) saute directement à ACTIVE.
+        PENDING = 'pending', 'Pending'
         ACTIVE = 'active', 'Active'
         CANCELLED = 'cancelled', 'Cancelled'
         EXPIRED = 'expired', 'Expired'
@@ -123,7 +130,7 @@ class Subscription(models.Model):
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='subscriptions')
     subscriber_type = models.CharField(max_length=100)
     subscriber_id = models.UUIDField()
-    status = models.CharField(max_length=50, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
     starts_at = models.DateField()
     ends_at = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -133,13 +140,51 @@ class Subscription(models.Model):
         today = timezone.now().date()
         return self.status == self.Status.ACTIVE and self.starts_at <= today <= self.ends_at
 
-    def renew(self):
-        # Implement renewal logic
-        pass
-
     def cancel(self):
         self.status = self.Status.CANCELLED
-        self.save()
+        self.save(update_fields=["status"])
+        self._notify("Abonnement annulé", f"Votre abonnement « {self.plan.name} » a été annulé.")
+
+    def subscriber_user(self):
+        # subscriber_type/subscriber_id est volontairement générique (pas de
+        # FK) pour pouvoir accueillir d'autres types d'abonnés plus tard —
+        # aujourd'hui seul "merchant" (un User) existe réellement.
+        if self.subscriber_type != "merchant":
+            return None
+        return User.objects.filter(id=self.subscriber_id).first()
+
+    def notify_activated(self):
+        message = (
+            f"Bonjour,\n\nVotre abonnement « {self.plan.name} » est actif jusqu'au "
+            f"{self.ends_at.strftime('%d/%m/%Y')}.\n\nMerci de votre confiance !"
+        )
+        self._notify(f"Abonnement « {self.plan.name} » activé", message)
+
+    def notify_expiring_soon(self, days_left):
+        message = (
+            f"Bonjour,\n\nVotre abonnement « {self.plan.name} » expire dans {days_left} jour"
+            f"{'s' if days_left > 1 else ''} (le {self.ends_at.strftime('%d/%m/%Y')}). "
+            "Renouvelez-le depuis votre espace pour ne pas perdre vos avantages."
+        )
+        self._notify(f"Votre abonnement « {self.plan.name} » expire bientôt", message)
+
+    def notify_expired(self):
+        message = (
+            f"Bonjour,\n\nVotre abonnement « {self.plan.name} » a expiré le "
+            f"{self.ends_at.strftime('%d/%m/%Y')}. Renouvelez-le depuis votre espace pour "
+            "retrouver ses avantages."
+        )
+        self._notify(f"Abonnement « {self.plan.name} » expiré", message)
+
+    def _notify(self, subject, message):
+        user = self.subscriber_user()
+        if not user:
+            return
+        notification = Notification.objects.create(
+            user=user, channel=Notification.Channel.EMAIL, subject=subject, message=message,
+            metadata={"subscription_id": str(self.id)},
+        )
+        notification.send()
 
     def __str__(self):
         return f"Subscription {self.id} - {self.plan.name}"

@@ -1,20 +1,57 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.utils import timezone
-from .models import Category, Product, ProductImage, ProductVariant, Review, Store, StoreSettings
+from .models import Category, Product, ProductImage, ProductVariant, Review, Store, StoreCategory, StoreSettings
 from .serializers import (
     CategorySerializer, ProductImageSerializer, ProductSerializer, ProductVariantSerializer,
-    ReviewSerializer, StoreSerializer, StoreSettingsSerializer,
+    ReviewSerializer, StoreCategorySerializer, StoreSerializer, StoreSettingsSerializer,
 )
 from apps.users.permissions import IsAdmin, IsStoreOwnerOrAdmin
 from apps.users.models import Role
-from apps.monetization.models import Notification, SponsoredProduct
+from apps.monetization.models import Notification, Subscription, SubscriptionPlan, SponsoredProduct
+
+
+def _active_product_limit(store):
+    """
+    Nombre max de produits ACTIFS (publiés) autorisés pour la boutique,
+    selon l'abonnement en cours de son propriétaire — None = illimité.
+    Sans abonnement actif, la boutique reste sur l'offre la moins chère
+    (gratuite par construction : c'est l'offre d'entrée du produit).
+    """
+    today = timezone.now().date()
+    subscription = (
+        Subscription.objects.filter(
+            subscriber_type="merchant", subscriber_id=store.owner_id,
+            status=Subscription.Status.ACTIVE, starts_at__lte=today, ends_at__gte=today,
+        )
+        .select_related("plan")
+        .first()
+    )
+    if subscription:
+        return subscription.plan.max_products
+    default_plan = SubscriptionPlan.objects.order_by("price").first()
+    return default_plan.max_products if default_plan else None
+
+
+def _check_product_limit(store, exclude_product_id=None):
+    limit = _active_product_limit(store)
+    if limit is None:
+        return
+    active_count = Product.objects.filter(store=store, status=Product.Status.ACTIVE)
+    if exclude_product_id:
+        active_count = active_count.exclude(id=exclude_product_id)
+    if active_count.count() >= limit:
+        raise ValidationError(
+            f"Limite de {limit} produits actifs atteinte pour votre offre. "
+            "Passez à une offre supérieure pour en publier davantage."
+        )
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -28,6 +65,28 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy", "upload_image"]:
             return [permissions.IsAuthenticated(), IsAdmin()]
         return super().get_permissions()
+
+    @action(detail=False, methods=["get"], url_path="store-counts")
+    def store_counts(self, request):
+        """
+        GET /api/catalog/categories/store-counts/
+        Nombre de boutiques actives ayant au moins un produit actif dans
+        chaque catégorie — pour le filtre par catégorie de la page
+        boutiques. N'affiche que les catégories réellement représentées
+        (aucune catégorie vide inventée).
+        """
+        categories = (
+            Category.objects.annotate(
+                store_count=models.Count(
+                    "products__store",
+                    filter=models.Q(products__status=Product.Status.ACTIVE, products__store__status=Store.Status.ACTIVE),
+                    distinct=True,
+                )
+            )
+            .filter(store_count__gt=0)
+            .order_by("name")
+        )
+        return Response([{"id": c.id, "name": c.name, "store_count": c.store_count} for c in categories])
 
     @action(
         detail=True,
@@ -44,6 +103,14 @@ class CategoryViewSet(viewsets.ModelViewSet):
         category.image = image_file
         category.save(update_fields=["image"])
         return Response(CategorySerializer(category).data)
+
+
+class StoreCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """Catégories de boutique (Électronique, Mode, ...) — lecture publique, pour le formulaire de création de boutique."""
+    queryset = StoreCategory.objects.all().order_by("name")
+    serializer_class = StoreCategorySerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -92,6 +159,18 @@ class ProductViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.has_role(Role.RoleName.ADMIN) and store.owner_id != user.id:
             raise PermissionDenied("Vous ne pouvez ajouter des produits que dans votre propre boutique.")
+        if serializer.validated_data.get("status") == Product.Status.ACTIVE:
+            _check_product_limit(store)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        product = self.get_object()
+        new_status = serializer.validated_data.get("status")
+        # Ne vérifie que le passage draft/inactive → active : modifier un
+        # produit déjà actif (prix, description...) ne doit jamais être
+        # bloqué par la limite de son offre.
+        if new_status == Product.Status.ACTIVE and product.status != Product.Status.ACTIVE:
+            _check_product_limit(product.store, exclude_product_id=product.id)
         serializer.save()
 
     @action(
@@ -250,8 +329,11 @@ class StoreViewSet(viewsets.ModelViewSet):
     """
     serializer_class = StoreSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["status", "owner"]
+    search_fields = ["name"]
+    ordering_fields = ["created_at", "name", "rating"]
+    ordering = ["-created_at"]
 
     def get_permissions(self):
         if self.action in ["approve", "reject"]:
@@ -261,10 +343,31 @@ class StoreViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated and user.has_role(Role.RoleName.ADMIN):
-            return Store.objects.all()
-        if user.is_authenticated:
-            return Store.objects.filter(models.Q(status=Store.Status.ACTIVE) | models.Q(owner=user))
-        return Store.objects.filter(status=Store.Status.ACTIVE)
+            qs = Store.objects.all()
+        elif user.is_authenticated:
+            qs = Store.objects.filter(models.Q(status=Store.Status.ACTIVE) | models.Q(owner=user))
+        else:
+            qs = Store.objects.filter(status=Store.Status.ACTIVE)
+
+        # Sous-requêtes indépendantes (plutôt qu'un simple .annotate(Avg(...))
+        # sur le queryset principal) : le filtre product_category ci-dessous
+        # joint aussi via `products`, et cumuler les deux joins gonflerait
+        # artificiellement la moyenne/le compte d'avis (fan-out de jointure).
+        review_qs = Review.objects.filter(product__store=models.OuterRef("pk"))
+        rating_subquery = review_qs.values("product__store").annotate(avg=models.Avg("rating")).values("avg")
+        count_subquery = review_qs.values("product__store").annotate(cnt=models.Count("id")).values("cnt")
+        qs = qs.annotate(
+            rating=models.Subquery(rating_subquery[:1], output_field=models.FloatField()),
+            review_count=Coalesce(
+                models.Subquery(count_subquery[:1], output_field=models.IntegerField()), 0
+            ),
+        )
+
+        category_id = self.request.query_params.get("product_category")
+        if category_id:
+            qs = qs.filter(products__category_id=category_id, products__status=Product.Status.ACTIVE).distinct()
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -282,6 +385,44 @@ class StoreViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Vous ne pouvez supprimer que votre propre boutique.")
         instance.delete()
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="logo",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_logo(self, request, pk=None):
+        """Photo de profil de la boutique — réservée au propriétaire (ou à l'admin)."""
+        store = self.get_object()
+        user = request.user
+        if not user.has_role(Role.RoleName.ADMIN) and store.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez modifier que votre propre boutique.")
+        image_file = request.FILES.get("logo")
+        if not image_file:
+            return Response({"error": "Fichier 'logo' requis."}, status=status.HTTP_400_BAD_REQUEST)
+        store.logo = image_file
+        store.save(update_fields=["logo"])
+        return Response(StoreSerializer(store).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="banner",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_banner(self, request, pk=None):
+        """Photo de couverture de la boutique — réservée au propriétaire (ou à l'admin)."""
+        store = self.get_object()
+        user = request.user
+        if not user.has_role(Role.RoleName.ADMIN) and store.owner_id != user.id:
+            raise PermissionDenied("Vous ne pouvez modifier que votre propre boutique.")
+        image_file = request.FILES.get("banner")
+        if not image_file:
+            return Response({"error": "Fichier 'banner' requis."}, status=status.HTTP_400_BAD_REQUEST)
+        store.banner = image_file
+        store.save(update_fields=["banner"])
+        return Response(StoreSerializer(store).data)
+
     def _notify_owner(self, store, subject, message):
         notification = Notification.objects.create(
             user=store.owner,
@@ -296,6 +437,7 @@ class StoreViewSet(viewsets.ModelViewSet):
     def approve(self, request, pk=None):
         store = self.get_object()
         store.status = Store.Status.ACTIVE
+        store.rejection_reason = ""
         store.save()
         subject = f"Boutique '{store.name}' approuvée"
         message = (
@@ -312,6 +454,7 @@ class StoreViewSet(viewsets.ModelViewSet):
         store = self.get_object()
         reason = request.data.get("reason", "Votre boutique n'a pas été validée.")
         store.status = Store.Status.SUSPENDED
+        store.rejection_reason = reason
         store.save()
         subject = f"Boutique '{store.name}' rejetée"
         message = (

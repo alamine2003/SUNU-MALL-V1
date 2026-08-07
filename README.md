@@ -12,6 +12,7 @@ Ce dépôt utilise une structure de **mono-repo** regroupant toutes les briques 
 | :--- | :--- |
 | **CTO (Lead Infra / DevOps & Backend)** | Architecture, déploiement, sécurité, base de données |
 | **Développeur Backend** | API REST (Django DRF), tâches asynchrones (Celery) |
+
 | **Développeuse Frontend** | Boutique publique (Next.js) & Dashboard Vendeur (React) |
 | **Développeuse Mobile & IA** | Application Client (React Native) & Intégration IA |
 | **Développeur Mobile, IA & DevOps** | App mobile, intégration IA et support infrastructure / CI-CD |

@@ -103,8 +103,12 @@ export default function AddProductPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as Record<string, unknown>;
-        const firstError = Object.values(data ?? {})[0];
-        setError(Array.isArray(firstError) ? String(firstError[0]) : "Impossible de créer le produit.");
+        if (typeof data?.detail === "string") {
+          setError(data.detail);
+        } else {
+          const firstError = Object.values(data ?? {})[0];
+          setError(Array.isArray(firstError) ? String(firstError[0]) : "Impossible de créer le produit.");
+        }
       } else {
         setError("Impossible de contacter le serveur.");
       }

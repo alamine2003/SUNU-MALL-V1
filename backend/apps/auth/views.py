@@ -157,7 +157,19 @@ class VerifyEmailView(APIView):
             return Response({
                 "error": "Lien invalide ou expiré."
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        # Idempotent : le hash du token inclut is_verified (voir
+        # EmailVerificationTokenGenerator), donc le même lien redevient
+        # "invalide" dès la première vérification réussie. Sans ce
+        # court-circuit, un second appel légitime — React StrictMode qui
+        # déclenche l'effet deux fois en dev, un client mail qui pré-visite
+        # le lien pour le scanner, l'utilisateur qui clique deux fois —
+        # afficherait à tort un échec alors que le compte est déjà activé.
+        if user.is_verified:
+            return Response({
+                "message": "Email déjà vérifié. Votre compte est activé."
+            }, status=status.HTTP_200_OK)
+
         if email_verification_token.check_token(user, token):
             user.is_verified = True
             user.save()
