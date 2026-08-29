@@ -3,6 +3,7 @@ Settings Django partagés par tous les environnements.
 dev.py et prod.py importent ce fichier puis surchargent ce qui change.
 """
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -67,17 +68,38 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# --- Base de données (Postgres, voir infra/docker-compose.yml) ---
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB", default="sunu_mall"),
-        "USER": config("POSTGRES_USER", default="sunu_mall"),
-        "PASSWORD": config("POSTGRES_PASSWORD", default="sunu_mall"),
-        "HOST": config("POSTGRES_HOST", default="db"),
-        "PORT": config("POSTGRES_PORT", default="5432"),
+# --- Base de données (Neon ou Postgres local) ---
+_database_url = config("DATABASE_URL", default="")
+if _database_url:
+    _database = urlparse(_database_url)
+    _database_query = parse_qs(_database.query)
+    _database_options = {
+        key: values[-1]
+        for key, values in _database_query.items()
+        if key in {"sslmode", "channel_binding"}
     }
-}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _database.path.lstrip("/"),
+            "USER": _database.username,
+            "PASSWORD": _database.password,
+            "HOST": _database.hostname,
+            "PORT": str(_database.port or 5432),
+            "OPTIONS": _database_options,
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": config("POSTGRES_DB", default="sunu_mall"),
+            "USER": config("POSTGRES_USER", default="sunu_mall"),
+            "PASSWORD": config("POSTGRES_PASSWORD", default="sunu_mall"),
+            "HOST": config("POSTGRES_HOST", default="db"),
+            "PORT": config("POSTGRES_PORT", default="5432"),
+        }
+    }
 
 # --- Redis (cache + broker Celery) ---
 REDIS_URL = config("REDIS_URL", default="redis://redis:6379/0")
