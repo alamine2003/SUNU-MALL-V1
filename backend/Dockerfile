@@ -43,8 +43,8 @@ ENV PYTHONUNBUFFERED=1
 
 COPY . .
 
-EXPOSE 8001
+EXPOSE 8000
 
 # En dev, ce CMD est écrasé par docker-compose (reload activé).
 # En prod, on utilisera gunicorn (voir infra/).
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8001"]
+CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-2}"]
