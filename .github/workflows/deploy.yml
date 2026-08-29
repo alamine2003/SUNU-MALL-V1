@@ -7,9 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: deploy-production
@@ -19,9 +17,6 @@ jobs:
   deploy-frontend:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
         working-directory: frontend
@@ -42,12 +37,13 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish frontend to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: frontend/dist
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: frontend/dist
+          publish_branch: gh-pages
+          force_orphan: true
 
   publish-backend:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -97,4 +93,8 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-        run: railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID"
+        run: |
+          test -n "$RAILWAY_TOKEN" || { echo "RAILWAY_TOKEN manquant"; exit 1; }
+          test -n "$RAILWAY_PROJECT_ID" || { echo "RAILWAY_PROJECT_ID manquant"; exit 1; }
+          test -n "$RAILWAY_SERVICE_ID" || { echo "RAILWAY_SERVICE_ID manquant"; exit 1; }
+          railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID"
