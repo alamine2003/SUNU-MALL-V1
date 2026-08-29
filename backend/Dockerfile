@@ -23,7 +23,8 @@ COPY requirements/ requirements/
 # ia.txt   = libs IA (souvent lourdes : numpy, torch, transformers...)
 # dev.txt  = outils de dev (pytest, flake8...), jamais en prod
 ARG REQUIREMENTS_FILE=requirements/base.txt
-RUN pip install --no-cache-dir --user -r ${REQUIREMENTS_FILE}
+RUN pip install --no-cache-dir --user -r ${REQUIREMENTS_FILE} \
+    && python -c "import drf_spectacular"
 
 # ---- Stage 2 : image finale, légère ----
 FROM python:3.12-slim
