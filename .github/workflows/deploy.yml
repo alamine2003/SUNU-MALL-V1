@@ -93,8 +93,10 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
           test -n "$RAILWAY_TOKEN" || { echo "RAILWAY_TOKEN manquant"; exit 1; }
           test -n "$RAILWAY_PROJECT_ID" || { echo "RAILWAY_PROJECT_ID manquant"; exit 1; }
           test -n "$RAILWAY_SERVICE_ID" || { echo "RAILWAY_SERVICE_ID manquant"; exit 1; }
-          railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID"
+          test -n "$RAILWAY_ENVIRONMENT_ID" || { echo "RAILWAY_ENVIRONMENT_ID manquant"; exit 1; }
+          railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID"
