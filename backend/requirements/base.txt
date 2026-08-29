@@ -24,6 +24,9 @@ gunicorn>=22.0,<22.1
 # JWT Authentication
 djangorestframework-simplejwt>=5.3,<5.4
 
+# Swagger/OpenAPI Documentation
+drf-spectacular>=0.27,<0.28
+
 # Client API Anthropic (Claude) — juste un client HTTP, pas une lib ML
 # lourde (torch, transformers...), donc reste ici plutôt que dans ia.txt.
 # Utilisé en synchrone dans les vues (apps/ia/) comme les autres appels
