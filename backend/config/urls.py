@@ -24,7 +24,7 @@ urlpatterns = [
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/ia/", include("apps.ia.urls")),
     # Swagger/OpenAPI Documentation
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/", SpectacularJSONAPIView.as_view(), name="schema"),
     path("api/schema.json", SpectacularJSONAPIView.as_view(), name="schema-json"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema-json"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
