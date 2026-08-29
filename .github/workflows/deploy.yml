@@ -88,7 +88,6 @@ jobs:
           node-version: "20"
       - run: npm install --global @railway/cli
       - name: Deploy backend to Railway
-        working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
