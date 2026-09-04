@@ -10,7 +10,6 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
-from django.core.exceptions import ValidationError
 from .serializers import (
     RegisterSerializer, LoginSerializer, ResendVerificationSerializer,
     GuestCheckoutSerializer, SetPasswordSerializer,

@@ -3,7 +3,6 @@ Catalogue : magasins, catégories, marques, produits, variants, inventaire et av
 """
 import uuid
 from django.db import models
-from django.utils import timezone
 from apps.users.models import User
 
 
@@ -80,7 +79,6 @@ class StoreSettings(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def is_open_now(self):
-        now = timezone.now()
         # Simplified check, business_hours should have appropriate structure
         return True
 

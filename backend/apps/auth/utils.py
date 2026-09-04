@@ -3,8 +3,8 @@ Utilitaires pour l'authentification : génération de tokens, envoi d'emails, et
 """
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
 from apps.users.models import User
