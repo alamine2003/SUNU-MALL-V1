@@ -17,20 +17,21 @@ L'IA vit dans `backend/apps/ia/`, comme une app Django normale, plutôt que dans
 
 **Signal qu'il est temps d'extraire l'IA en service à part** : si l'image Docker du backend devient lourde (plusieurs Go) à cause des libs IA, ou si l'IA a besoin d'un cycle de déploiement complètement différent du reste du backend (ex: GPU dédié).
 
-## Next.js pour la boutique, React/Vite pour le dashboard vendeur
+## React/Vite pour la boutique et les espaces privés
 
-Deux interfaces web, deux besoins différents :
-
-- **`frontend/` (boutique, Next.js)** : page publique consultée par des acheteurs venant souvent de Google. Le SSR (rendu côté serveur) aide au référencement et accélère le premier affichage — important sur des connexions mobiles parfois lentes.
-- **`seller-dashboard/` (React + Vite)** : interface privée, jamais indexée par un moteur de recherche. Pas besoin de SSR — un simple build statique servi par nginx suffit, et c'est plus simple à maintenir.
+Le dépôt contient aujourd'hui une seule application `frontend/` en React/Vite.
+Elle regroupe la boutique publique et les espaces client, vendeur, livreur et
+administrateur ; aucun dossier `seller-dashboard/` autonome n'est versionné.
+Le build est statique et servi par nginx, avec un fallback vers `index.html`
+pour les routes de React Router.
 
 ## Pourquoi un Dockerfile multi-stage par service
 
 Chaque `Dockerfile` du repo suit le même principe : une étape de build (avec compilateurs, outils, dépendances complètes) puis une étape finale qui ne copie que le strict nécessaire à l'exécution. Concrètement :
 
 - Le backend n'embarque pas `build-essential` dans son image finale (utile seulement pour compiler `psycopg2`, par exemple).
-- Le frontend Next.js n'embarque pas son code source ni les dépendances de développement, seulement le build `standalone`.
-- Le dashboard vendeur n'embarque même pas Node.js dans l'image finale — juste nginx + les fichiers statiques générés.
+- Le frontend Vite n'embarque pas Node.js dans l'image finale, seulement les
+  fichiers statiques produits par le build.
 
 Ça réduit la taille des images, accélère les déploiements, et réduit la surface d'attaque (moins d'outils inutiles présents en prod).
 

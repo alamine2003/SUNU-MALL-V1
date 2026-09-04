@@ -13,7 +13,7 @@ Ce dépôt utilise une structure de **mono-repo** regroupant toutes les briques 
 | **CTO (Lead Infra / DevOps & Backend)** | Architecture, déploiement, sécurité, base de données |
 | **Développeur Backend** | API REST (Django DRF), tâches asynchrones (Celery) |
 
-| **Développeuse Frontend** | Boutique publique (Next.js) & Dashboard Vendeur (React) |
+| **Développeuse Frontend** | Boutique et espaces vendeur (React + Vite) |
 | **Développeuse Mobile & IA** | Application Client (React Native) & Intégration IA |
 | **Développeur Mobile, IA & DevOps** | App mobile, intégration IA et support infrastructure / CI-CD |
 
@@ -24,8 +24,7 @@ Ce dépôt utilise une structure de **mono-repo** regroupant toutes les briques 
 ```
 sunu-mall/
 ├── backend/            # API REST - Django + Django REST Framework + Celery
-├── frontend/           # Boutique publique - Next.js (Rendu côté serveur pour le SEO)
-├── seller-dashboard/   # Dashboard vendeur - React + Vite (Application SPA statique)
+├── frontend/           # Boutique et espaces vendeur - React + Vite
 ├── mobile/             # Application mobile Client - React Native (Expo)
 ├── infra/              # Configuration Docker Compose, Nginx, Variables d'env & Monitoring
 │   ├── env/            # Variables d'environnement templates (dev, prod, staging)
@@ -57,7 +56,6 @@ cp infra/env/redis.env.example infra/env/redis.env
 # Configuration locale des projets (si vous les lancez hors Docker)
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
-cp seller-dashboard/.env.example seller-dashboard/.env.local
 ```
 
 ### 3. Lancement de la Stack de Développement
@@ -71,6 +69,28 @@ docker compose -f infra/docker-compose.dev.yml up --build -d
 docker compose -f infra/docker-compose.dev.yml logs -f backend
 ```
 
+### 4. Paiements Wave et Orange Money avec NabooPay
+
+Le backend utilise l'API NabooPay v2 pour créer un checkout hébergé. En local,
+`PAYMENT_SANDBOX=True` simule le paiement. Pour activer le flux réel, renseigner
+dans `infra/env/backend.env` :
+
+```dotenv
+PAYMENT_SANDBOX=False
+NABOOPAY_API_KEY=<clé API NabooPay>
+NABOOPAY_BASE_URL=https://api.naboopay.com
+NABOOPAY_WEBHOOK_SECRET=<secret du webhook NabooPay>
+```
+
+Déclarer ensuite dans le tableau de bord NabooPay l'URL publique
+`https://votre-domaine.example/api/payments/webhooks/naboopay/`. Le webhook
+doit être en HTTPS ; le serveur vérifie `X-Signature`, le montant XOF et ignore
+les notifications déjà traitées. Documentation :
+[API NabooPay v2](https://docs.naboopay.com/api-reference) et
+[webhooks](https://docs.naboopay.com/api-reference/webhooks).
+
+Ne jamais mettre la clé API ou le secret de webhook dans le frontend.
+
 ---
 
 ## 🌐 Adresses des Services et Consoles
@@ -78,13 +98,11 @@ docker compose -f infra/docker-compose.dev.yml logs -f backend
 Une fois la stack démarrée, les services suivants sont accessibles :
 
 ### 🚀 Points d'entrée Utilisateurs & API
-* **Boutique en ligne (Next.js) :** [http://localhost:3010](http://localhost:3010)
-* **Tableau de bord Vendeur (React) :** [http://localhost:3011](http://localhost:3011)
+* **Boutique et espaces vendeur (React/Vite) :** [http://localhost:3010](http://localhost:3010)
 * **API Backend Django (DRF) :** [http://localhost:8080/api/](http://localhost:8080/api/)
 * **Administration Django :** [http://localhost:8080/admin/](http://localhost:8080/admin/)
 * **Nginx Reverse Proxy (Global) :** [http://localhost:8081](http://localhost:8081)
   * `/` -> Redirige vers le Frontend
-  * `/seller/` -> Redirige vers le Dashboard Vendeur
   * `/api/` -> Redirige vers le Backend (API)
   * `/admin/` -> Redirige vers l'Administration Django
 
