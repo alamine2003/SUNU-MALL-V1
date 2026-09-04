@@ -59,26 +59,17 @@ services:
       - redis
     networks: [sunu-mall]
 
-  # ---------- Frontend boutique (Next.js) ----------
+  # ---------- Frontend boutique (Vite/React) ----------
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8080/api
     ports:
-      - "3010:3000"
+      - "3010:80"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080/api
-    depends_on:
-      - backend
-    networks: [sunu-mall]
-
-  # ---------- Dashboard vendeur ----------
-  seller-dashboard:
-    build:
-      context: ../seller-dashboard
-      dockerfile: Dockerfile
-    ports:
-      - "3011:80"
+      VITE_API_URL: http://localhost:8080/api
     depends_on:
       - backend
     networks: [sunu-mall]
@@ -172,7 +163,6 @@ services:
     depends_on:
       - backend
       - frontend
-      - seller-dashboard
     networks: [sunu-mall]
 
 networks:
