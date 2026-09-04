@@ -6,14 +6,14 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
-from .models import Address, Delivery, DeliveryTracking, Driver, Order, OrderItem
+from .models import Address, Delivery, Driver, Order, OrderItem
 from .pricing import compute_delivery_fee
 from .serializers import (
     AddressSerializer, CheckoutSerializer, DeliveryQuoteSerializer, DeliverySerializer,
     DeliveryTrackingSerializer, DriverSerializer, OrderSerializer,
 )
 from apps.catalog.models import ProductVariant, Store
-from apps.payments.models import Payment, Refund
+from apps.payments.models import Payment, PaymentService, Refund
 from apps.shopping.models import CartItem
 from apps.users.models import Role
 
@@ -38,6 +38,13 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def destroy(self, request, *args, **kwargs):
+        """Une commande reste traçable ; seule l'annulation est autorisée."""
+        return Response(
+            {"error": "Une commande ne peut pas être supprimée. Utilisez cancel."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     def get_queryset(self):
         user = self.request.user
@@ -101,10 +108,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.save(update_fields=["total_amount"])
 
             Delivery.objects.create(order=order)
-            Payment.objects.create(
-                order=order,
-                amount=order.total_amount,
-                method=data["payment_method"],
+            PaymentService.process_order_payment(
+                order, order.total_amount, data["payment_method"]
             )
 
             variant_ids = [item["product_variant"] for item in data["items"]]

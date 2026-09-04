@@ -225,12 +225,16 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@sunumall.com")
 
-# --- Paiement (Wave / Orange Money) ---
-# Tant qu'aucune vraie clé marchande n'est fournie, PAYMENT_SANDBOX reste actif
-# et apps.payments.gateways simule le paiement au lieu d'appeler un vrai fournisseur.
+# --- Paiement (NabooPay : Wave / Orange Money) ---
+# Le sandbox protège les environnements de développement. La production doit
+# fournir la clé NabooPay et le secret de webhook avant de le désactiver.
 PAYMENT_SANDBOX = config("PAYMENT_SANDBOX", default=True, cast=bool)
-WAVE_API_KEY = config("WAVE_API_KEY", default="")
-ORANGE_MONEY_API_KEY = config("ORANGE_MONEY_API_KEY", default="")
+NABOOPAY_API_KEY = config("NABOOPAY_API_KEY", default="")
+NABOOPAY_BASE_URL = config("NABOOPAY_BASE_URL", default="https://api.naboopay.com")
+NABOOPAY_WEBHOOK_SECRET = config("NABOOPAY_WEBHOOK_SECRET", default="")
+NABOOPAY_TIMEOUT = config("NABOOPAY_TIMEOUT", default=15, cast=int)
+NABOOPAY_IS_ESCROW = config("NABOOPAY_IS_ESCROW", default=False, cast=bool)
+NABOOPAY_FEES_CUSTOMER_SIDE = config("NABOOPAY_FEES_CUSTOMER_SIDE", default=True, cast=bool)
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3004")
 
 # --- IA (apps/ia/) : génération de description produit, assistant client ---

@@ -2,13 +2,18 @@
 Tests pour le paiement en mode sandbox : confirmation simulée, sécurité
 d'accès (un client ne voit que ses propres paiements).
 """
+import hashlib
+import hmac
+import json
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 from apps.users.models import User, Role, UserRole
 from apps.catalog.models import Store
 from apps.orders.models import Order
-from apps.payments.models import Payment
+from apps.payments.models import Payment, Transaction
 
 
 class PaymentSandboxTests(TestCase):
@@ -77,3 +82,84 @@ class PaymentSandboxTests(TestCase):
         self.client.force_authenticate(self.customer)
         response = self.client.post(f"/api/payments/{self.payment.id}/sandbox-confirm/", {"outcome": "success"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_order_delete_is_disabled_to_preserve_payment_history(self):
+        self.client.force_authenticate(self.customer)
+        response = self.client.delete(f"/api/orders/{self.order.id}/")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertTrue(Order.objects.filter(pk=self.order.id).exists())
+
+
+class NabooPayTests(PaymentSandboxTests):
+    @override_settings(
+        PAYMENT_SANDBOX=False,
+        NABOOPAY_API_KEY="test-api-key",
+        NABOOPAY_BASE_URL="https://api.naboopay.test",
+        NABOOPAY_WEBHOOK_SECRET="webhook-secret",
+    )
+    @patch("apps.payments.gateways.httpx.post")
+    def test_initiate_creates_and_reuses_naboopay_checkout(self, post):
+        import httpx
+
+        post.return_value = httpx.Response(
+            201,
+            json={"data": {"order_id": "naboo-order-1", "checkout_url": "https://pay.naboo.test/1"}},
+        )
+        self.client.force_authenticate(self.customer)
+
+        response = self.client.post(f"/api/payments/{self.payment.id}/initiate/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["sandbox"])
+        self.assertEqual(response.data["checkout_url"], "https://pay.naboo.test/1")
+        self.assertEqual(post.call_count, 1)
+        sent_payload = post.call_args.kwargs["json"]
+        self.assertEqual(sent_payload["selected_payment_method"], "wave")
+        self.assertEqual(sent_payload["currency"], "XOF")
+
+        response = self.client.post(f"/api/payments/{self.payment.id}/initiate/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(post.call_count, 1)
+
+    @override_settings(NABOOPAY_WEBHOOK_SECRET="webhook-secret")
+    def test_naboopay_webhook_confirms_payment_idempotently(self):
+        self.payment.provider_ref = "naboo-order-1"
+        self.payment.save(update_fields=["provider_ref"])
+        payload = {
+            "order_id": "naboo-order-1",
+            "transaction_status": "completed",
+            "amount": 10000,
+            "currency": "XOF",
+        }
+        body = json.dumps(payload, separators=(",", ":")).encode()
+        signature = hmac.new(b"webhook-secret", body, hashlib.sha256).hexdigest()
+
+        first = self.client.post(
+            "/api/payments/webhooks/naboopay/",
+            data=body,
+            content_type="application/json",
+            HTTP_X_SIGNATURE=signature,
+        )
+        second = self.client.post(
+            "/api/payments/webhooks/naboopay/",
+            data=body,
+            content_type="application/json",
+            HTTP_X_SIGNATURE=signature,
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.SUCCESS)
+        self.assertEqual(self.order.status, Order.Status.PAID)
+        self.assertEqual(Transaction.objects.filter(payment=self.payment).count(), 1)
+
+    @override_settings(NABOOPAY_WEBHOOK_SECRET="webhook-secret")
+    def test_naboopay_webhook_rejects_invalid_signature(self):
+        response = self.client.post(
+            "/api/payments/webhooks/naboopay/",
+            data=b'{"order_id":"naboo-order-1"}',
+            content_type="application/json",
+            HTTP_X_SIGNATURE="bad-signature",
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

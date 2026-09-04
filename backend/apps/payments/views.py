@@ -1,9 +1,19 @@
+import hashlib
+import hmac
+import json
+from decimal import Decimal, InvalidOperation
+
 from django.conf import settings
 from django.db import models
+from django.db import transaction
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import Payment, Refund
 from .serializers import PaymentSerializer, RefundSerializer
 from .gateways import PaymentGatewayError, get_gateway
@@ -11,6 +21,22 @@ from apps.monetization.models import Notification
 from apps.orders.models import Order
 from apps.users.models import Role
 from apps.users.permissions import IsAdmin
+
+
+def _complete_order_payment(payment):
+    """Applique une confirmation une seule fois et déclenche la livraison."""
+    changed = payment.mark_succeeded()
+    if not changed or not payment.order_id:
+        return payment
+
+    order = payment.order
+    if order.status != Order.Status.PAID:
+        order.change_status(Order.Status.PAID)
+        _send_order_confirmation(order)
+        delivery = getattr(order, "delivery", None)
+        if delivery:
+            delivery.auto_assign()
+    return payment
 
 
 def _send_order_confirmation(order):
@@ -74,11 +100,16 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         """Démarre le paiement auprès du fournisseur (ou de la simulation sandbox)."""
         payment = self.get_object()
         self._ensure_customer(payment)
+        if payment.status != Payment.Status.PENDING:
+            return Response(
+                {"error": "Ce paiement n'est plus en attente."},
+                status=status.HTTP_409_CONFLICT,
+            )
         gateway = get_gateway(payment.method)
         try:
             result = gateway.initiate(payment)
-        except (NotImplementedError, PaymentGatewayError) as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except PaymentGatewayError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
         return Response(result)
 
     @action(detail=True, methods=["post"], url_path="sandbox-confirm")
@@ -97,16 +128,13 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         self._ensure_customer(payment)
 
         outcome = request.data.get("outcome", "success")
+        if outcome not in {"success", "failed"}:
+            return Response(
+                {"error": "Le résultat doit être « success » ou « failed »."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if outcome == "success":
-            payment.mark_succeeded()
-            if payment.order_id is not None:
-                payment.order.change_status(Order.Status.PAID)
-                _send_order_confirmation(payment.order)
-                delivery = getattr(payment.order, "delivery", None)
-                if delivery:
-                    delivery.auto_assign()
-            # Le côté abonnement (activation + facture) est déjà géré par
-            # Payment.mark_succeeded() lui-même — voir apps.payments.models.
+            _complete_order_payment(payment)
         else:
             payment.mark_failed()
         return Response(PaymentSerializer(payment).data)
@@ -137,3 +165,55 @@ class RefundViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"error": "Ce remboursement a déjà été traité."}, status=status.HTTP_400_BAD_REQUEST)
         refund.process()
         return Response(RefundSerializer(refund).data)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class NabooPayWebhookView(APIView):
+    """Reçoit les statuts NabooPay après vérification de leur signature."""
+
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        secret = settings.NABOOPAY_WEBHOOK_SECRET
+        signature = request.headers.get("X-Signature", "")
+        expected = hmac.new(
+            secret.encode("utf-8"), request.body, hashlib.sha256
+        ).hexdigest()
+        if not secret or not signature or not hmac.compare_digest(signature, expected):
+            return JsonResponse({"error": "Signature invalide."}, status=401)
+
+        try:
+            payload = json.loads(request.body)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Payload JSON invalide."}, status=400)
+
+        provider_ref = str(payload.get("order_id", ""))
+        payment_status = payload.get("transaction_status")
+        if not provider_ref or payment_status not in {"completed", "failed", "cancelled"}:
+            return JsonResponse({"error": "Événement NabooPay invalide."}, status=400)
+
+        payment = Payment.objects.filter(provider_ref=provider_ref).first()
+        if payment is None:
+            # Accuser réception évite une boucle de retries pour un paiement
+            # créé sur un autre environnement ou supprimé avant le webhook.
+            return JsonResponse({"status": "ignored"}, status=200)
+
+        amount = payload.get("amount")
+        currency = payload.get("currency", "XOF")
+        if currency != "XOF" or amount is None:
+            return JsonResponse({"error": "Montant ou devise invalide."}, status=400)
+        try:
+            if payment.amount != Decimal(str(amount)):
+                return JsonResponse({"error": "Montant invalide."}, status=400)
+        except (InvalidOperation, TypeError, ValueError):
+            return JsonResponse({"error": "Montant invalide."}, status=400)
+
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(pk=payment.pk)
+            if payment_status == "completed":
+                _complete_order_payment(payment)
+            else:
+                payment.mark_failed()
+
+        return JsonResponse({"status": "received"}, status=200)

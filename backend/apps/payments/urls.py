@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
-from .views import PaymentViewSet, RefundViewSet
+from django.urls import path
+from .views import NabooPayWebhookView, PaymentViewSet, RefundViewSet
 
 router = DefaultRouter()
 # IMPORTANT : "refunds" doit être enregistré avant le préfixe vide "" —
@@ -8,4 +9,7 @@ router = DefaultRouter()
 router.register("refunds", RefundViewSet, basename="refund")
 router.register("", PaymentViewSet, basename="payment")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("webhooks/naboopay/", NabooPayWebhookView.as_view(), name="naboopay-webhook"),
+    *router.urls,
+]

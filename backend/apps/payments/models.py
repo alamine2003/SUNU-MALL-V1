@@ -13,8 +13,13 @@ from apps.monetization.models import Invoice, Subscription
 class PaymentService:
     @staticmethod
     def process_order_payment(order, amount, method):
-        # Implement payment processing logic here
-        pass
+        """Crée un paiement cohérent avec le total de la commande."""
+        amount = Decimal(amount)
+        if amount != order.total_amount:
+            raise ValueError("Le montant du paiement ne correspond pas à la commande.")
+        if hasattr(order, "payment"):
+            raise ValueError("Cette commande possède déjà un paiement.")
+        return Payment.objects.create(order=order, amount=amount, method=method)
 
 
 class CommissionRule(models.Model):
@@ -41,6 +46,11 @@ class CommissionRule(models.Model):
 
 
 class Payment(models.Model):
+    class Method(models.TextChoices):
+        WAVE = "wave", "Wave"
+        ORANGE_MONEY = "orange_money", "Orange Money"
+        CARD = "card", "Carte bancaire"
+
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
         SUCCESS = 'success', 'Success'
@@ -51,14 +61,15 @@ class Payment(models.Model):
     # Un paiement règle soit une commande, soit un abonnement — jamais les
     # deux (contrainte ci-dessous) : d'où les deux FK optionnelles plutôt
     # qu'une seule relation polymorphe, plus simple à requêter/valider.
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment', null=True, blank=True)
+    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name='payment', null=True, blank=True)
     subscription = models.OneToOneField(
         Subscription, on_delete=models.CASCADE, related_name='payment', null=True, blank=True
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    method = models.CharField(max_length=100)
+    method = models.CharField(max_length=20, choices=Method.choices)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
-    provider_ref = models.CharField(max_length=255, blank=True)
+    provider_ref = models.CharField(max_length=255, blank=True, db_index=True)
+    checkout_url = models.URLField(blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -76,13 +87,26 @@ class Payment(models.Model):
         ]
 
     def mark_succeeded(self):
-        self.status = self.Status.SUCCESS
-        self.paid_at = timezone.now()
-        self.save()
-        if self.subscription_id:
-            self._activate_subscription()
-        else:
-            Transaction.create_for_payment(self)
+        """Confirme le paiement une seule fois, même sur webhook doublonné."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(pk=self.pk)
+            if payment.status == self.Status.SUCCESS:
+                self.refresh_from_db()
+                return False
+            if payment.status == self.Status.REFUNDED:
+                return False
+
+            payment.status = self.Status.SUCCESS
+            payment.paid_at = timezone.now()
+            payment.save(update_fields=["status", "paid_at", "updated_at"])
+            if payment.subscription_id:
+                payment._activate_subscription()
+            else:
+                Transaction.create_for_payment(payment)
+            self.refresh_from_db()
+            return True
 
     def _activate_subscription(self):
         subscription = self.subscription
@@ -97,10 +121,19 @@ class Payment(models.Model):
         subscription.notify_activated()
 
     def mark_failed(self):
-        self.status = self.Status.FAILED
-        self.save()
-        if self.subscription_id:
-            self.subscription.cancel()
+        from django.db import transaction
+
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(pk=self.pk)
+            if payment.status in {self.Status.FAILED, self.Status.SUCCESS, self.Status.REFUNDED}:
+                self.refresh_from_db()
+                return False
+            payment.status = self.Status.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+            if payment.subscription_id:
+                payment.subscription.cancel()
+            self.refresh_from_db()
+            return True
 
     def __str__(self):
         return f"Payment {self.id} - {self.order_id or self.subscription_id}"
@@ -133,6 +166,8 @@ class Transaction(models.Model):
         est déjà entièrement un revenu plateforme, tracé via Invoice.
         """
         if payment.order_id is None:
+            return
+        if payment.transactions.exclude(type=Transaction.Type.REFUND).exists():
             return
 
         rate = CommissionRule.current_rate("order")
@@ -180,22 +215,38 @@ class Refund(models.Model):
         Wave/Orange Money/carte n'est pas un appel API instantané ici, un
         humain confirme que l'argent a bien été renvoyé avant ce statut.
         """
-        self.status = self.Status.COMPLETED
-        self.refunded_at = timezone.now()
-        self.save()
+        from django.db import transaction
 
-        payment = self.payment
-        payment.status = Payment.Status.REFUNDED
-        payment.save(update_fields=["status"])
+        with transaction.atomic():
+            refund = Refund.objects.select_for_update().select_related("payment").get(pk=self.pk)
+            if refund.status == self.Status.COMPLETED:
+                return False
+            if refund.status not in {self.Status.PENDING, self.Status.APPROVED}:
+                raise ValueError("Seul un remboursement en attente peut être traité.")
 
-        for original in payment.transactions.exclude(type=Transaction.Type.REFUND):
-            Transaction.objects.create(
-                payment=payment, type=Transaction.Type.REFUND,
-                payee_type=original.payee_type, payee_id=original.payee_id,
-                amount=-original.amount,
-            )
+            payment = Payment.objects.select_for_update().get(pk=refund.payment_id)
+            if payment.status != Payment.Status.SUCCESS:
+                raise ValueError("Seul un paiement confirmé peut être remboursé.")
+            if refund.amount <= 0 or refund.amount > payment.amount:
+                raise ValueError("Le montant du remboursement est invalide.")
 
-        self._notify_customer()
+            refund.status = self.Status.COMPLETED
+            refund.refunded_at = timezone.now()
+            refund.save(update_fields=["status", "refunded_at", "updated_at"])
+
+            payment.status = Payment.Status.REFUNDED
+            payment.save(update_fields=["status", "updated_at"])
+
+            for original in payment.transactions.exclude(type=Transaction.Type.REFUND):
+                Transaction.objects.create(
+                    payment=payment, type=Transaction.Type.REFUND,
+                    payee_type=original.payee_type, payee_id=original.payee_id,
+                    amount=-original.amount,
+                )
+
+            self.refresh_from_db()
+            transaction.on_commit(self._notify_customer)
+            return True
 
     def _notify_customer(self):
         from apps.monetization.models import Notification
