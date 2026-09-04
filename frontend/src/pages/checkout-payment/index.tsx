@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { CheckCircle2, CreditCard, FlaskConical, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, FlaskConical, TriangleAlert, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import * as ordersApi from "@/api/orders";
@@ -20,12 +20,22 @@ export default function CheckoutPaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [sandboxMessage, setSandboxMessage] = useState<string | null>(null);
+  const [livePayment, setLivePayment] = useState(false);
   const [confirming, setConfirming] = useState<"success" | "failed" | null>(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
 
   useEffect(() => {
     if (createdOrder?.payment) {
-      paymentsApi.initiatePayment(createdOrder.payment.id).then((res) => setSandboxMessage(res.message));
+      paymentsApi
+        .initiatePayment(createdOrder.payment.id)
+        .then((res) => {
+          setSandboxMessage(res.message);
+          setLivePayment(!res.sandbox);
+          if (!res.sandbox && res.checkout_url) {
+            window.location.assign(res.checkout_url);
+          }
+        })
+        .catch(() => setError("Impossible de démarrer le paiement."));
     }
   }, [createdOrder]);
 
@@ -82,20 +92,26 @@ export default function CheckoutPaymentPage() {
       <div className="flex flex-col gap-6">
         <h1 className="font-display text-2xl font-bold text-gray-900">Paiement</h1>
         <Card className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            <FlaskConical className="h-4 w-4 shrink-0" />
-            <div>
-              <p className="font-semibold">Mode test (sandbox)</p>
-              <p>{sandboxMessage ?? "Aucune vraie transaction Wave/Orange Money/carte n'est envoyée."}</p>
+          {livePayment ? (
+            <p className="text-sm text-muted-foreground">
+              {sandboxMessage ?? "Redirection vers NabooPay…"}
+            </p>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <FlaskConical className="h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Mode test (sandbox)</p>
+                <p>{sandboxMessage ?? "Aucune vraie transaction Wave/Orange Money/carte n'est envoyée."}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           <p className="text-sm text-muted-foreground">
             Commande n°{createdOrder.id.slice(0, 8)} — <strong>{formatPrice(createdOrder.total_amount)}</strong> via{" "}
             {createdOrder.payment?.method}
           </p>
 
-          {paymentFailed ? (
+          {livePayment ? null : paymentFailed ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
               <span className="grid h-14 w-14 place-items-center rounded-full bg-red-100">
                 <XCircle className="h-8 w-8 text-danger" />

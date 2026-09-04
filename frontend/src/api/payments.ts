@@ -18,6 +18,7 @@ export function processRefund(refundId: number) {
 export interface InitiatePaymentResult {
   sandbox: boolean;
   provider_ref: string;
+  checkout_url: string | null;
   message: string;
 }
 
