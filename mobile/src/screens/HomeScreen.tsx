@@ -12,7 +12,12 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
   title: { fontSize: 22, fontWeight: "bold" },
   subtitle: { marginTop: 8, color: "#555", textAlign: "center" },
 });
