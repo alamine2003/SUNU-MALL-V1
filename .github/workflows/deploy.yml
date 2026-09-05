@@ -110,7 +110,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   deploy-railway:
-    needs: publish-backend
+    needs: [resolve_backend_url, publish-backend]
     if: ${{ success() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
@@ -136,6 +136,28 @@ jobs:
           test -n "$RAILWAY_ENVIRONMENT_ID" || { echo "RAILWAY_ENVIRONMENT_ID manquant"; exit 1; }
           railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID"
 
+      - name: Wait for deployed backend health
+        env:
+          API_URL: ${{ needs.resolve_backend_url.outputs.api_url }}
+        run: |
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 10 \
+            --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 120 \
+            "$API_URL/health/"
+
+      - name: Show Railway runtime logs after failure
+        if: ${{ failure() }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          railway logs --latest --lines 120 \
+            --project "$RAILWAY_PROJECT_ID" \
+            --service "$RAILWAY_SERVICE_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_ID"
+
   smoke-test:
     needs: [resolve_backend_url, deploy-frontend, deploy-railway]
     if: ${{ success() && github.event.workflow_run.conclusion == 'success' }}
@@ -149,12 +171,18 @@ jobs:
     steps:
       - name: Check deployed frontend
         run: |
-          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$FRONTEND_URL" -o "$RUNNER_TEMP/frontend.html"
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 10 \
+            --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 120 \
+            "$FRONTEND_URL" -o "$RUNNER_TEMP/frontend.html"
           grep -Fq '<title>Sunu Mall</title>' "$RUNNER_TEMP/frontend.html"
 
       - name: Check public catalog API and CORS
         run: |
-          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$API_URL/catalog/products/" -o "$RUNNER_TEMP/catalog.json"
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 10 \
+            --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 120 \
+            "$API_URL/catalog/products/" -o "$RUNNER_TEMP/catalog.json"
           jq -e 'type == "object" and has("results")' "$RUNNER_TEMP/catalog.json" >/dev/null
           curl --fail --silent --show-error -X OPTIONS \
             -H "Origin: $FRONTEND_ORIGIN" \
