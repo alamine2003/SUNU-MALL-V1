@@ -36,8 +36,24 @@ CSRF_TRUSTED_ORIGINS = config(
 if not FRONTEND_URL.startswith("https://"):
     raise ImproperlyConfigured("FRONTEND_URL doit utiliser HTTPS en production.")
 
-if AWS_ACCESS_KEY_ID == 'minioadmin' or AWS_SECRET_ACCESS_KEY == 'minioadmin':
-    raise ImproperlyConfigured("Les identifiants de stockage de développement sont interdits en production.")
+_uses_default_storage_credentials = (
+    AWS_ACCESS_KEY_ID == "minioadmin" and AWS_SECRET_ACCESS_KEY == "minioadmin"
+)
+if _uses_default_storage_credentials:
+    # Le déploiement de démonstration Railway ne fournit pas encore de service
+    # S3/MinIO. Django doit néanmoins pouvoir démarrer et servir les médias du
+    # conteneur. Une configuration S3 réelle reprend automatiquement la main
+    # dès que les deux identifiants sont fournis.
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
+elif AWS_ACCESS_KEY_ID == "minioadmin" or AWS_SECRET_ACCESS_KEY == "minioadmin":
+    raise ImproperlyConfigured(
+        "MINIO_ACCESS_KEY et MINIO_SECRET_KEY doivent être configurés ensemble."
+    )
 
 if not PAYMENT_SANDBOX:
     if not NABOOPAY_API_KEY or not NABOOPAY_WEBHOOK_SECRET:

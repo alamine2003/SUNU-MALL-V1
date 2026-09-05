@@ -4,10 +4,16 @@ fonctionnent. Chaque équipe ajoutera ses propres tests dans
 apps/<son_app>/tests.py au fur et à mesure du backlog réel.
 """
 import pytest
-from django.urls import reverse
 from apps.catalog.models import Store
 from apps.monetization.models import Notification
 from apps.users.models import Role, User, UserRole
+
+
+def test_health_endpoint(client):
+    response = client.get("/api/health/")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 @pytest.mark.django_db

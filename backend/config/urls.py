@@ -4,16 +4,23 @@ Chaque app expose ses propres routes dans son fichier urls.py —
 on les inclut ici sous un préfixe clair.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.conf import settings
+from django.http import JsonResponse
+from django.urls import include, path, re_path
+from django.views.static import serve
 from drf_spectacular.views import (
-    SpectacularAPIView,
     SpectacularJSONAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
 
+def health(_request):
+    return JsonResponse({"status": "ok"})
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/health/", health, name="health"),
     path("api/auth/", include("apps.auth.urls")),
     path("api/users/", include("apps.users.urls")),
     path("api/catalog/", include("apps.catalog.urls")),
@@ -29,3 +36,8 @@ urlpatterns = [
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema-json"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
+
+if settings.STORAGES["default"]["BACKEND"] == "django.core.files.storage.FileSystemStorage":
+    urlpatterns += [
+        re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+    ]
