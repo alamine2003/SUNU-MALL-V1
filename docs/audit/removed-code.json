@@ -1,0 +1,78 @@
+[
+  {
+    "file": "backend/apps/users/permissions.py",
+    "symbol": "IsOwnerOrAdmin"
+  },
+  {
+    "file": "backend/apps/users/permissions.py",
+    "symbol": "HasPermission"
+  },
+  {
+    "file": "backend/apps/users/permissions.py",
+    "symbol": "IsDriver"
+  },
+  {
+    "file": "backend/apps/users/permissions.py",
+    "symbol": "IsClient"
+  },
+  {
+    "file": "backend/apps/users/permissions.py",
+    "symbol": "IsMerchant"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "restock"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "commit"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "release"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "get_price"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "average_rating"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "is_in_stock"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "get_primary_image"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "get_breadcrumb"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "get_children"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "is_open_now"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "calculate_rating"
+  },
+  {
+    "file": "backend/apps/catalog/models.py",
+    "symbol": "get_active_products"
+  },
+  {
+    "file": "backend/apps/shopping/models.py",
+    "symbol": "remove_product"
+  },
+  {
+    "file": "backend/apps/users/models.py",
+    "symbol": "check_password"
+  }
+]

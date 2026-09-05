@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-05",
+  "backend": {
+    "tests_passed": 127,
+    "warnings": 15,
+    "coverage_percent": 86,
+    "coverage_includes_tests": true,
+    "ruff": "passed",
+    "missing_migrations": false,
+    "seconds": 34.35
+  },
+  "frontend": {
+    "tests_passed": 32,
+    "lint": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "subpath_build": "passed"
+  },
+  "mobile": {
+    "tests_passed": 2,
+    "lint": "passed",
+    "typecheck": "passed",
+    "android_export": "passed",
+    "ios_export": "passed",
+    "native_device_tests": "not_run",
+    "plist_tar_smoke": "passed"
+  },
+  "production_security_check": "passed_with_isolated_test_configuration",
+  "openapi_deployment_warnings": 45,
+  "nginx_tls_config": "passed_with_disposable_certificate",
+  "bash_syntax": "passed",
+  "full_restore": "not_run",
+  "real_payment_provider": "not_called",
+  "real_smtp": "not_called",
+  "deployment": "not_performed",
+  "browser": {
+    "session_restore": true,
+    "quantity_and_total": true,
+    "checkout_sandbox_confirmation": true,
+    "under_load": "product_view_only_no_web_vitals",
+    "cart_badge_regression": "covered_by_api_regression_tests"
+  },
+  "dependency_findings": {
+    "python": 0,
+    "frontend": 0,
+    "mobile": {
+      "info": 0,
+      "low": 2,
+      "moderate": 31,
+      "high": 6,
+      "critical": 0,
+      "total": 39
+    }
+  },
+  "docker_builds": {
+    "backend": "passed",
+    "frontend": "passed"
+  },
+  "load_report": "fixed.json"
+}

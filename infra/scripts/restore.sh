@@ -1,42 +1,28 @@
-#!/bin/bash
-# =========================================================
-# SUNU MALL — Script de restauration d'une sauvegarde
-# =========================================================
-
-set -e
-
-BACKUP_DIR="./backups"
-
-if [ -z "$1" ]; then
-    echo "❌ Erreur : Veuillez spécifier le timestamp de la sauvegarde à restaurer"
-    echo "Utilisation : $0 YYYYMMDD_HHMMSS"
-    exit 1
+#!/usr/bin/env bash
+# Restauration destructive réservée à une fenêtre de maintenance.
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+COMPOSE_FILE="${SUNU_COMPOSE_FILE:-$REPO_DIR/infra/docker-compose.prod.yml}"
+BACKUP_DIR="${SUNU_BACKUP_DIR:-$REPO_DIR/backups}"
+TIMESTAMP="${1:-}"
+[[ "$TIMESTAMP" =~ ^[0-9]{8}_[0-9]{6}$ ]] || { echo "Usage : $0 YYYYMMDD_HHMMSS --confirm-restore" >&2; exit 1; }
+[[ "${2:-}" == --confirm-restore ]] || { echo "Arrêter les écritures et MinIO, puis ajouter --confirm-restore pour remplacer les données." >&2; exit 1; }
+SQL_FILE="$BACKUP_DIR/postgres_$TIMESTAMP.sql"
+MEDIA_FILE="$BACKUP_DIR/media_$TIMESTAMP.tar.gz"
+test -s "$SQL_FILE" && test -s "$MEDIA_FILE"
+# Vérifier l'archive avant toute modification de la base.
+tar -tzf "$MEDIA_FILE" | awk '/^\// || /(^|\/)\.\.(\/|$)/ { bad=1 } END { exit bad }'
+tar -tvzf "$MEDIA_FILE" | awk '/^[lh]/ { bad=1 } END { exit bad }'
+MEDIA_DIR="$REPO_DIR/infra/volumes/media"
+STAGED_DIR="$(mktemp -d "$REPO_DIR/infra/volumes/restore.XXXXXX")"
+trap 'rm -rf -- "$STAGED_DIR"' EXIT
+tar -xzf "$MEDIA_FILE" -C "$STAGED_DIR"
+# Une erreur SQL annule la restauration, contrairement à un DROP déjà validé.
+docker compose -f "$COMPOSE_FILE" exec -T db sh -c 'exec psql --set ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$SQL_FILE"
+# Conserver les anciens médias pour permettre une reprise manuelle.
+if [ -d "$MEDIA_DIR" ]; then
+    mv -- "$MEDIA_DIR" "$MEDIA_DIR.before-restore-$(date +%s)"
 fi
-
-TIMESTAMP=$1
-POSTGRES_BACKUP="$BACKUP_DIR/postgres_$TIMESTAMP.sql"
-MEDIA_BACKUP="$BACKUP_DIR/media_$TIMESTAMP.tar.gz"
-
-if [ ! -f "$POSTGRES_BACKUP" ]; then
-    echo "❌ Erreur : Sauvegarde PostgreSQL $POSTGRES_BACKUP introuvable"
-    exit 1
-fi
-
-if [ ! -f "$MEDIA_BACKUP" ]; then
-    echo "❌ Erreur : Sauvegarde Media $MEDIA_BACKUP introuvable"
-    exit 1
-fi
-
-echo "🔄 Restauration de la sauvegarde du $TIMESTAMP..."
-
-# Restaurer PostgreSQL
-echo "💾 Restauration PostgreSQL..."
-docker compose -f ../docker-compose.prod.yml exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-docker compose -f ../docker-compose.prod.yml exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB < $POSTGRES_BACKUP
-
-# Restaurer Media
-echo "💾 Restauration des fichiers media..."
-rm -rf ../volumes/media/*
-tar -xzf $MEDIA_BACKUP -C ../volumes/media
-
-echo "✅ Restauration terminée avec succès !"
+mv -- "$STAGED_DIR" "$MEDIA_DIR"
+echo "Restauration terminée. Relancer MinIO et l'application après contrôle."

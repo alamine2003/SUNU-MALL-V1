@@ -1,0 +1,19 @@
+{
+  "private_key": [],
+  "provider_token": [],
+  "unsafe_html": [
+    "backend/apps/auth/throttles.py:35"
+  ],
+  "sql_raw": [
+    "backend/apps/orders/test_audit.py:24",
+    "backend/tools/marketplace_load.py:157"
+  ],
+  "browser_storage": [
+    "frontend/src/store/authStore.ts:28",
+    "frontend/src/store/recentlyViewedStore.ts:12"
+  ],
+  "client_env": [
+    "frontend/src/lib/session.ts:2",
+    "frontend/vite.config.ts:8"
+  ]
+}

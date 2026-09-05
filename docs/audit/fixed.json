@@ -1,0 +1,253 @@
+{
+  "run_id": "a42d4f297f",
+  "stages": {
+    "clients_30": {
+      "clients": 30,
+      "seconds": 1.94,
+      "errors": {},
+      "requests": 520,
+      "status": {
+        "200": 400,
+        "201": 120
+      },
+      "p50_ms": 89.266,
+      "p95_ms": 172.562,
+      "p99_ms": 180.061,
+      "max_ms": 181.561,
+      "sql_count_max": 50,
+      "sql_ms_p95": 15.153,
+      "slowest_sql_ms": 18.71,
+      "requests_per_second": 268.04
+    },
+    "clients_60": {
+      "clients": 60,
+      "seconds": 3.757,
+      "errors": {},
+      "requests": 1040,
+      "status": {
+        "200": 800,
+        "201": 240
+      },
+      "p50_ms": 167.781,
+      "p95_ms": 359.269,
+      "p99_ms": 379.185,
+      "max_ms": 384.31,
+      "sql_count_max": 47,
+      "sql_ms_p95": 14.662,
+      "slowest_sql_ms": 19.005,
+      "requests_per_second": 276.82
+    },
+    "clients_120": {
+      "clients": 120,
+      "seconds": 7.611,
+      "errors": {},
+      "requests": 2080,
+      "status": {
+        "200": 1600,
+        "201": 480
+      },
+      "p50_ms": 342.841,
+      "p95_ms": 694.555,
+      "p99_ms": 713.59,
+      "max_ms": 724.066,
+      "sql_count_max": 47,
+      "sql_ms_p95": 14.727,
+      "slowest_sql_ms": 21.907,
+      "requests_per_second": 273.29
+    },
+    "clients_300": {
+      "clients": 300,
+      "seconds": 20.241,
+      "errors": {},
+      "requests": 5200,
+      "status": {
+        "200": 4000,
+        "201": 1200
+      },
+      "p50_ms": 904.732,
+      "p95_ms": 1913.793,
+      "p99_ms": 1969.788,
+      "max_ms": 1984.156,
+      "sql_count_max": 47,
+      "sql_ms_p95": 15.752,
+      "slowest_sql_ms": 30.199,
+      "requests_per_second": 256.9
+    },
+    "last_units_30": {
+      "clients": 30,
+      "seconds": 0.145,
+      "errors": {},
+      "requests": 35,
+      "status": {
+        "201": 5,
+        "400": 25,
+        "200": 5
+      },
+      "p50_ms": 72.224,
+      "p95_ms": 101.981,
+      "p99_ms": 102.529,
+      "max_ms": 103.548,
+      "sql_count_max": 45,
+      "sql_ms_p95": 17.103,
+      "slowest_sql_ms": 12.129,
+      "requests_per_second": 241.38
+    }
+  },
+  "last_units": {
+    "initial": 5,
+    "remaining": 0,
+    "reserved": 0,
+    "sold": 5,
+    "consistent": true,
+    "orders": 5,
+    "payments": 5
+  },
+  "pg_max_connections": 6,
+  "pg_max_active": 5,
+  "pg_max_lock_waiters": 1,
+  "resources_before": {
+    "cpu_usage_usec": 6427205,
+    "cpu_throttled_usec": 668092,
+    "memory_current_bytes": 456097792,
+    "memory_peak_bytes": 456417280
+  },
+  "resources_after": {
+    "cpu_usage_usec": 68912519,
+    "cpu_throttled_usec": 10007498,
+    "memory_current_bytes": 520523776,
+    "memory_peak_bytes": 536588288
+  },
+  "endpoints": {
+    "GET /catalog/stores/:id/": {
+      "requests": 680,
+      "status": {
+        "200": 680
+      },
+      "p50_ms": 341.396,
+      "p95_ms": 1072.956,
+      "p99_ms": 1250.945,
+      "max_ms": 1441.582,
+      "sql_count_max": 5,
+      "sql_ms_p95": 5.56,
+      "slowest_sql_ms": 22.052
+    },
+    "GET /catalog/categories/": {
+      "requests": 680,
+      "status": {
+        "200": 680
+      },
+      "p50_ms": 305.635,
+      "p95_ms": 912.596,
+      "p99_ms": 966.807,
+      "max_ms": 1001.467,
+      "sql_count_max": 3,
+      "sql_ms_p95": 1.799,
+      "slowest_sql_ms": 30.199
+    },
+    "GET /catalog/products/": {
+      "requests": 680,
+      "status": {
+        "200": 680
+      },
+      "p50_ms": 366.149,
+      "p95_ms": 1039.12,
+      "p99_ms": 1073.798,
+      "max_ms": 1081.513,
+      "sql_count_max": 7,
+      "sql_ms_p95": 5.337,
+      "slowest_sql_ms": 22.841
+    },
+    "GET /catalog/products/:id/": {
+      "requests": 1360,
+      "status": {
+        "200": 1360
+      },
+      "p50_ms": 353.811,
+      "p95_ms": 1002.426,
+      "p99_ms": 1060.12,
+      "max_ms": 1082.512,
+      "sql_count_max": 5,
+      "sql_ms_p95": 4.405,
+      "slowest_sql_ms": 19.039
+    },
+    "POST /shopping/cart/items/": {
+      "requests": 1360,
+      "status": {
+        "201": 1360
+      },
+      "p50_ms": 401.272,
+      "p95_ms": 980.13,
+      "p99_ms": 997.404,
+      "max_ms": 1021.617,
+      "sql_count_max": 17,
+      "sql_ms_p95": 9.3,
+      "slowest_sql_ms": 21.034
+    },
+    "PATCH /shopping/cart/items/:id/": {
+      "requests": 1360,
+      "status": {
+        "200": 1360
+      },
+      "p50_ms": 377.094,
+      "p95_ms": 1070.257,
+      "p99_ms": 1088.134,
+      "max_ms": 1095.354,
+      "sql_count_max": 9,
+      "sql_ms_p95": 5.464,
+      "slowest_sql_ms": 21.907
+    },
+    "POST /orders/checkout/": {
+      "requests": 710,
+      "status": {
+        "201": 685,
+        "400": 25
+      },
+      "p50_ms": 567.179,
+      "p95_ms": 1523.177,
+      "p99_ms": 1598.544,
+      "max_ms": 1614.377,
+      "sql_count_max": 38,
+      "sql_ms_p95": 16.231,
+      "slowest_sql_ms": 16.172
+    },
+    "POST /payments/:id/sandbox-confirm/": {
+      "requests": 685,
+      "status": {
+        "200": 685
+      },
+      "p50_ms": 675.968,
+      "p95_ms": 1893.722,
+      "p99_ms": 1924.403,
+      "max_ms": 1936.694,
+      "sql_count_max": 50,
+      "sql_ms_p95": 17.159,
+      "slowest_sql_ms": 10.818
+    },
+    "GET /orders/": {
+      "requests": 680,
+      "status": {
+        "200": 680
+      },
+      "p50_ms": 709.43,
+      "p95_ms": 1973.131,
+      "p99_ms": 1978.174,
+      "max_ms": 1984.156,
+      "sql_count_max": 7,
+      "sql_ms_p95": 17.597,
+      "slowest_sql_ms": 15.629
+    },
+    "GET /orders/:id/": {
+      "requests": 680,
+      "status": {
+        "200": 680
+      },
+      "p50_ms": 616.33,
+      "p95_ms": 1820.003,
+      "p99_ms": 1865.173,
+      "max_ms": 1939.525,
+      "sql_count_max": 6,
+      "sql_ms_p95": 12.0,
+      "slowest_sql_ms": 10.29
+    }
+  }
+}

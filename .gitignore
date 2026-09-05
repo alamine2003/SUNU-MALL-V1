@@ -7,7 +7,8 @@
 !**/*.env.example
 *.pem
 *.key
-infra/env/
+infra/env/*
+!infra/env/*.env.example
 infra/volumes/
 docs/Mot de passe*.txt
 backend/celerybeat-schedule

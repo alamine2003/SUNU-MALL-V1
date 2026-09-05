@@ -1,0 +1,835 @@
+{
+  "daily_order_query_plan": "Bitmap Heap Scan on orders_order  (cost=6.83..54.33 rows=2 width=153) (actual time=0.123..0.192 rows=340 loops=1)\n  Recheck Cond: (store_id = 'd82539aa-c5b2-430d-b83d-258002b9e942'::uuid)\n  Filter: (((status)::text = ANY ('{paid,processing,shipped,delivered}'::text[])) AND (((created_at AT TIME ZONE 'Africa/Dakar'::text))::date = '2026-09-05'::date))\n  Heap Blocks: exact=27\n  Buffers: shared hit=29\n  ->  Bitmap Index Scan on orders_order_store_id_138e1a80  (cost=0.00..6.83 rows=340 width=0) (actual time=0.022..0.022 rows=367 loops=1)\n        Index Cond: (store_id = 'd82539aa-c5b2-430d-b83d-258002b9e942'::uuid)\n        Buffers: shared hit=2\nPlanning:\n  Buffers: shared hit=69\nPlanning Time: 0.292 ms\nExecution Time: 0.221 ms",
+  "indexes": [
+    {
+      "table": "analytics_report",
+      "name": "analytics_report_generated_by_id_5c795b7e",
+      "definition": "CREATE INDEX analytics_report_generated_by_id_5c795b7e ON public.analytics_report USING btree (generated_by_id)"
+    },
+    {
+      "table": "analytics_report",
+      "name": "analytics_report_pkey",
+      "definition": "CREATE UNIQUE INDEX analytics_report_pkey ON public.analytics_report USING btree (id)"
+    },
+    {
+      "table": "analytics_salesstatistic",
+      "name": "analytics_salesstatistic_pkey",
+      "definition": "CREATE UNIQUE INDEX analytics_salesstatistic_pkey ON public.analytics_salesstatistic USING btree (id)"
+    },
+    {
+      "table": "analytics_salesstatistic",
+      "name": "analytics_salesstatistic_store_id_16999b50",
+      "definition": "CREATE INDEX analytics_salesstatistic_store_id_16999b50 ON public.analytics_salesstatistic USING btree (store_id)"
+    },
+    {
+      "table": "analytics_salesstatistic",
+      "name": "analytics_salesstatistic_store_id_date_cbb0641c_uniq",
+      "definition": "CREATE UNIQUE INDEX analytics_salesstatistic_store_id_date_cbb0641c_uniq ON public.analytics_salesstatistic USING btree (store_id, date)"
+    },
+    {
+      "table": "analytics_trafficstatistic",
+      "name": "analytics_trafficstatistic_pkey",
+      "definition": "CREATE UNIQUE INDEX analytics_trafficstatistic_pkey ON public.analytics_trafficstatistic USING btree (id)"
+    },
+    {
+      "table": "analytics_trafficstatistic",
+      "name": "analytics_trafficstatistic_store_id_a342b9c2",
+      "definition": "CREATE INDEX analytics_trafficstatistic_store_id_a342b9c2 ON public.analytics_trafficstatistic USING btree (store_id)"
+    },
+    {
+      "table": "analytics_trafficstatistic",
+      "name": "analytics_trafficstatistic_store_id_date_2d553917_uniq",
+      "definition": "CREATE UNIQUE INDEX analytics_trafficstatistic_store_id_date_2d553917_uniq ON public.analytics_trafficstatistic USING btree (store_id, date)"
+    },
+    {
+      "table": "auth_group",
+      "name": "auth_group_name_a6ea08ec_like",
+      "definition": "CREATE INDEX auth_group_name_a6ea08ec_like ON public.auth_group USING btree (name varchar_pattern_ops)"
+    },
+    {
+      "table": "auth_group",
+      "name": "auth_group_name_key",
+      "definition": "CREATE UNIQUE INDEX auth_group_name_key ON public.auth_group USING btree (name)"
+    },
+    {
+      "table": "auth_group",
+      "name": "auth_group_pkey",
+      "definition": "CREATE UNIQUE INDEX auth_group_pkey ON public.auth_group USING btree (id)"
+    },
+    {
+      "table": "auth_group_permissions",
+      "name": "auth_group_permissions_group_id_b120cbf9",
+      "definition": "CREATE INDEX auth_group_permissions_group_id_b120cbf9 ON public.auth_group_permissions USING btree (group_id)"
+    },
+    {
+      "table": "auth_group_permissions",
+      "name": "auth_group_permissions_group_id_permission_id_0cd325b0_uniq",
+      "definition": "CREATE UNIQUE INDEX auth_group_permissions_group_id_permission_id_0cd325b0_uniq ON public.auth_group_permissions USING btree (group_id, permission_id)"
+    },
+    {
+      "table": "auth_group_permissions",
+      "name": "auth_group_permissions_permission_id_84c5c92e",
+      "definition": "CREATE INDEX auth_group_permissions_permission_id_84c5c92e ON public.auth_group_permissions USING btree (permission_id)"
+    },
+    {
+      "table": "auth_group_permissions",
+      "name": "auth_group_permissions_pkey",
+      "definition": "CREATE UNIQUE INDEX auth_group_permissions_pkey ON public.auth_group_permissions USING btree (id)"
+    },
+    {
+      "table": "auth_permission",
+      "name": "auth_permission_content_type_id_2f476e4b",
+      "definition": "CREATE INDEX auth_permission_content_type_id_2f476e4b ON public.auth_permission USING btree (content_type_id)"
+    },
+    {
+      "table": "auth_permission",
+      "name": "auth_permission_content_type_id_codename_01ab375a_uniq",
+      "definition": "CREATE UNIQUE INDEX auth_permission_content_type_id_codename_01ab375a_uniq ON public.auth_permission USING btree (content_type_id, codename)"
+    },
+    {
+      "table": "auth_permission",
+      "name": "auth_permission_pkey",
+      "definition": "CREATE UNIQUE INDEX auth_permission_pkey ON public.auth_permission USING btree (id)"
+    },
+    {
+      "table": "catalog_brand",
+      "name": "catalog_brand_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_brand_pkey ON public.catalog_brand USING btree (id)"
+    },
+    {
+      "table": "catalog_category",
+      "name": "catalog_category_parent_id_f61bd017",
+      "definition": "CREATE INDEX catalog_category_parent_id_f61bd017 ON public.catalog_category USING btree (parent_id)"
+    },
+    {
+      "table": "catalog_category",
+      "name": "catalog_category_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_category_pkey ON public.catalog_category USING btree (id)"
+    },
+    {
+      "table": "catalog_inventory",
+      "name": "catalog_inventory_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_inventory_pkey ON public.catalog_inventory USING btree (id)"
+    },
+    {
+      "table": "catalog_inventory",
+      "name": "catalog_inventory_variant_id_key",
+      "definition": "CREATE UNIQUE INDEX catalog_inventory_variant_id_key ON public.catalog_inventory USING btree (variant_id)"
+    },
+    {
+      "table": "catalog_product",
+      "name": "catalog_product_brand_id_bb0c7890",
+      "definition": "CREATE INDEX catalog_product_brand_id_bb0c7890 ON public.catalog_product USING btree (brand_id)"
+    },
+    {
+      "table": "catalog_product",
+      "name": "catalog_product_category_id_35bf920b",
+      "definition": "CREATE INDEX catalog_product_category_id_35bf920b ON public.catalog_product USING btree (category_id)"
+    },
+    {
+      "table": "catalog_product",
+      "name": "catalog_product_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_product_pkey ON public.catalog_product USING btree (id)"
+    },
+    {
+      "table": "catalog_product",
+      "name": "catalog_product_store_id_f179ba69",
+      "definition": "CREATE INDEX catalog_product_store_id_f179ba69 ON public.catalog_product USING btree (store_id)"
+    },
+    {
+      "table": "catalog_productimage",
+      "name": "catalog_productimage_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_productimage_pkey ON public.catalog_productimage USING btree (id)"
+    },
+    {
+      "table": "catalog_productimage",
+      "name": "catalog_productimage_product_id_1f42dd8c",
+      "definition": "CREATE INDEX catalog_productimage_product_id_1f42dd8c ON public.catalog_productimage USING btree (product_id)"
+    },
+    {
+      "table": "catalog_productvariant",
+      "name": "catalog_productvariant_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_productvariant_pkey ON public.catalog_productvariant USING btree (id)"
+    },
+    {
+      "table": "catalog_productvariant",
+      "name": "catalog_productvariant_product_id_422f9d19",
+      "definition": "CREATE INDEX catalog_productvariant_product_id_422f9d19 ON public.catalog_productvariant USING btree (product_id)"
+    },
+    {
+      "table": "catalog_productvariant",
+      "name": "catalog_productvariant_sku_da81620a_like",
+      "definition": "CREATE INDEX catalog_productvariant_sku_da81620a_like ON public.catalog_productvariant USING btree (sku varchar_pattern_ops)"
+    },
+    {
+      "table": "catalog_productvariant",
+      "name": "catalog_productvariant_sku_key",
+      "definition": "CREATE UNIQUE INDEX catalog_productvariant_sku_key ON public.catalog_productvariant USING btree (sku)"
+    },
+    {
+      "table": "catalog_review",
+      "name": "catalog_review_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_review_pkey ON public.catalog_review USING btree (id)"
+    },
+    {
+      "table": "catalog_review",
+      "name": "catalog_review_product_id_e494243b",
+      "definition": "CREATE INDEX catalog_review_product_id_e494243b ON public.catalog_review USING btree (product_id)"
+    },
+    {
+      "table": "catalog_review",
+      "name": "catalog_review_product_id_user_id_3eaebf54_uniq",
+      "definition": "CREATE UNIQUE INDEX catalog_review_product_id_user_id_3eaebf54_uniq ON public.catalog_review USING btree (product_id, user_id)"
+    },
+    {
+      "table": "catalog_review",
+      "name": "catalog_review_user_id_743df0f5",
+      "definition": "CREATE INDEX catalog_review_user_id_743df0f5 ON public.catalog_review USING btree (user_id)"
+    },
+    {
+      "table": "catalog_store",
+      "name": "catalog_store_category_id_adc2ed40",
+      "definition": "CREATE INDEX catalog_store_category_id_adc2ed40 ON public.catalog_store USING btree (category_id)"
+    },
+    {
+      "table": "catalog_store",
+      "name": "catalog_store_owner_id_191eeca6",
+      "definition": "CREATE INDEX catalog_store_owner_id_191eeca6 ON public.catalog_store USING btree (owner_id)"
+    },
+    {
+      "table": "catalog_store",
+      "name": "catalog_store_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_store_pkey ON public.catalog_store USING btree (id)"
+    },
+    {
+      "table": "catalog_storecategory",
+      "name": "catalog_storecategory_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_storecategory_pkey ON public.catalog_storecategory USING btree (id)"
+    },
+    {
+      "table": "catalog_storeemployee",
+      "name": "catalog_storeemployee_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_storeemployee_pkey ON public.catalog_storeemployee USING btree (id)"
+    },
+    {
+      "table": "catalog_storeemployee",
+      "name": "catalog_storeemployee_store_id_5438ba3b",
+      "definition": "CREATE INDEX catalog_storeemployee_store_id_5438ba3b ON public.catalog_storeemployee USING btree (store_id)"
+    },
+    {
+      "table": "catalog_storeemployee",
+      "name": "catalog_storeemployee_user_id_6a21896b",
+      "definition": "CREATE INDEX catalog_storeemployee_user_id_6a21896b ON public.catalog_storeemployee USING btree (user_id)"
+    },
+    {
+      "table": "catalog_storesettings",
+      "name": "catalog_storesettings_pkey",
+      "definition": "CREATE UNIQUE INDEX catalog_storesettings_pkey ON public.catalog_storesettings USING btree (id)"
+    },
+    {
+      "table": "catalog_storesettings",
+      "name": "catalog_storesettings_store_id_key",
+      "definition": "CREATE UNIQUE INDEX catalog_storesettings_store_id_key ON public.catalog_storesettings USING btree (store_id)"
+    },
+    {
+      "table": "django_admin_log",
+      "name": "django_admin_log_content_type_id_c4bce8eb",
+      "definition": "CREATE INDEX django_admin_log_content_type_id_c4bce8eb ON public.django_admin_log USING btree (content_type_id)"
+    },
+    {
+      "table": "django_admin_log",
+      "name": "django_admin_log_pkey",
+      "definition": "CREATE UNIQUE INDEX django_admin_log_pkey ON public.django_admin_log USING btree (id)"
+    },
+    {
+      "table": "django_admin_log",
+      "name": "django_admin_log_user_id_c564eba6",
+      "definition": "CREATE INDEX django_admin_log_user_id_c564eba6 ON public.django_admin_log USING btree (user_id)"
+    },
+    {
+      "table": "django_celery_beat_clockedschedule",
+      "name": "django_celery_beat_clockedschedule_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_clockedschedule_pkey ON public.django_celery_beat_clockedschedule USING btree (id)"
+    },
+    {
+      "table": "django_celery_beat_crontabschedule",
+      "name": "django_celery_beat_crontabschedule_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_crontabschedule_pkey ON public.django_celery_beat_crontabschedule USING btree (id)"
+    },
+    {
+      "table": "django_celery_beat_intervalschedule",
+      "name": "django_celery_beat_intervalschedule_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_intervalschedule_pkey ON public.django_celery_beat_intervalschedule USING btree (id)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_clocked_id_47a69f82",
+      "definition": "CREATE INDEX django_celery_beat_periodictask_clocked_id_47a69f82 ON public.django_celery_beat_periodictask USING btree (clocked_id)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_crontab_id_d3cba168",
+      "definition": "CREATE INDEX django_celery_beat_periodictask_crontab_id_d3cba168 ON public.django_celery_beat_periodictask USING btree (crontab_id)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_interval_id_a8ca27da",
+      "definition": "CREATE INDEX django_celery_beat_periodictask_interval_id_a8ca27da ON public.django_celery_beat_periodictask USING btree (interval_id)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_name_265a36b7_like",
+      "definition": "CREATE INDEX django_celery_beat_periodictask_name_265a36b7_like ON public.django_celery_beat_periodictask USING btree (name varchar_pattern_ops)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_name_key",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_periodictask_name_key ON public.django_celery_beat_periodictask USING btree (name)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_periodictask_pkey ON public.django_celery_beat_periodictask USING btree (id)"
+    },
+    {
+      "table": "django_celery_beat_periodictask",
+      "name": "django_celery_beat_periodictask_solar_id_a87ce72c",
+      "definition": "CREATE INDEX django_celery_beat_periodictask_solar_id_a87ce72c ON public.django_celery_beat_periodictask USING btree (solar_id)"
+    },
+    {
+      "table": "django_celery_beat_periodictasks",
+      "name": "django_celery_beat_periodictasks_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_periodictasks_pkey ON public.django_celery_beat_periodictasks USING btree (ident)"
+    },
+    {
+      "table": "django_celery_beat_solarschedule",
+      "name": "django_celery_beat_solar_event_latitude_longitude_ba64999a_uniq",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_solar_event_latitude_longitude_ba64999a_uniq ON public.django_celery_beat_solarschedule USING btree (event, latitude, longitude)"
+    },
+    {
+      "table": "django_celery_beat_solarschedule",
+      "name": "django_celery_beat_solarschedule_pkey",
+      "definition": "CREATE UNIQUE INDEX django_celery_beat_solarschedule_pkey ON public.django_celery_beat_solarschedule USING btree (id)"
+    },
+    {
+      "table": "django_content_type",
+      "name": "django_content_type_app_label_model_76bd3d3b_uniq",
+      "definition": "CREATE UNIQUE INDEX django_content_type_app_label_model_76bd3d3b_uniq ON public.django_content_type USING btree (app_label, model)"
+    },
+    {
+      "table": "django_content_type",
+      "name": "django_content_type_pkey",
+      "definition": "CREATE UNIQUE INDEX django_content_type_pkey ON public.django_content_type USING btree (id)"
+    },
+    {
+      "table": "django_migrations",
+      "name": "django_migrations_pkey",
+      "definition": "CREATE UNIQUE INDEX django_migrations_pkey ON public.django_migrations USING btree (id)"
+    },
+    {
+      "table": "django_session",
+      "name": "django_session_expire_date_a5c62663",
+      "definition": "CREATE INDEX django_session_expire_date_a5c62663 ON public.django_session USING btree (expire_date)"
+    },
+    {
+      "table": "django_session",
+      "name": "django_session_pkey",
+      "definition": "CREATE UNIQUE INDEX django_session_pkey ON public.django_session USING btree (session_key)"
+    },
+    {
+      "table": "django_session",
+      "name": "django_session_session_key_c0390e0f_like",
+      "definition": "CREATE INDEX django_session_session_key_c0390e0f_like ON public.django_session USING btree (session_key varchar_pattern_ops)"
+    },
+    {
+      "table": "ia_recommendationlog",
+      "name": "ia_recommendationlog_pkey",
+      "definition": "CREATE UNIQUE INDEX ia_recommendationlog_pkey ON public.ia_recommendationlog USING btree (id)"
+    },
+    {
+      "table": "ia_recommendationlog",
+      "name": "ia_recommendationlog_user_id_0e8a94a3",
+      "definition": "CREATE INDEX ia_recommendationlog_user_id_0e8a94a3 ON public.ia_recommendationlog USING btree (user_id)"
+    },
+    {
+      "table": "monetization_invoice",
+      "name": "monetization_invoice_pkey",
+      "definition": "CREATE UNIQUE INDEX monetization_invoice_pkey ON public.monetization_invoice USING btree (id)"
+    },
+    {
+      "table": "monetization_invoice",
+      "name": "monetization_invoice_subscription_id_d1bfe812",
+      "definition": "CREATE INDEX monetization_invoice_subscription_id_d1bfe812 ON public.monetization_invoice USING btree (subscription_id)"
+    },
+    {
+      "table": "monetization_notification",
+      "name": "monetization_notification_pkey",
+      "definition": "CREATE UNIQUE INDEX monetization_notification_pkey ON public.monetization_notification USING btree (id)"
+    },
+    {
+      "table": "monetization_notification",
+      "name": "monetization_notification_user_id_687a0e7a",
+      "definition": "CREATE INDEX monetization_notification_user_id_687a0e7a ON public.monetization_notification USING btree (user_id)"
+    },
+    {
+      "table": "monetization_sponsoredproduct",
+      "name": "monetization_sponsoredproduct_pkey",
+      "definition": "CREATE UNIQUE INDEX monetization_sponsoredproduct_pkey ON public.monetization_sponsoredproduct USING btree (id)"
+    },
+    {
+      "table": "monetization_sponsoredproduct",
+      "name": "monetization_sponsoredproduct_product_id_c7c79fd7",
+      "definition": "CREATE INDEX monetization_sponsoredproduct_product_id_c7c79fd7 ON public.monetization_sponsoredproduct USING btree (product_id)"
+    },
+    {
+      "table": "monetization_sponsoredproduct",
+      "name": "monetization_sponsoredproduct_store_id_8a75869e",
+      "definition": "CREATE INDEX monetization_sponsoredproduct_store_id_8a75869e ON public.monetization_sponsoredproduct USING btree (store_id)"
+    },
+    {
+      "table": "monetization_subscription",
+      "name": "monetization_subscription_pkey",
+      "definition": "CREATE UNIQUE INDEX monetization_subscription_pkey ON public.monetization_subscription USING btree (id)"
+    },
+    {
+      "table": "monetization_subscription",
+      "name": "monetization_subscription_plan_id_21db64e8",
+      "definition": "CREATE INDEX monetization_subscription_plan_id_21db64e8 ON public.monetization_subscription USING btree (plan_id)"
+    },
+    {
+      "table": "monetization_subscriptionplan",
+      "name": "monetization_subscriptionplan_pkey",
+      "definition": "CREATE UNIQUE INDEX monetization_subscriptionplan_pkey ON public.monetization_subscriptionplan USING btree (id)"
+    },
+    {
+      "table": "orders_address",
+      "name": "orders_address_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_address_pkey ON public.orders_address USING btree (id)"
+    },
+    {
+      "table": "orders_address",
+      "name": "orders_address_user_id_bac0072e",
+      "definition": "CREATE INDEX orders_address_user_id_bac0072e ON public.orders_address USING btree (user_id)"
+    },
+    {
+      "table": "orders_delivery",
+      "name": "orders_delivery_driver_id_8c469ebb",
+      "definition": "CREATE INDEX orders_delivery_driver_id_8c469ebb ON public.orders_delivery USING btree (driver_id)"
+    },
+    {
+      "table": "orders_delivery",
+      "name": "orders_delivery_order_id_key",
+      "definition": "CREATE UNIQUE INDEX orders_delivery_order_id_key ON public.orders_delivery USING btree (order_id)"
+    },
+    {
+      "table": "orders_delivery",
+      "name": "orders_delivery_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_delivery_pkey ON public.orders_delivery USING btree (id)"
+    },
+    {
+      "table": "orders_deliverytracking",
+      "name": "orders_deliverytracking_delivery_id_55ab5069",
+      "definition": "CREATE INDEX orders_deliverytracking_delivery_id_55ab5069 ON public.orders_deliverytracking USING btree (delivery_id)"
+    },
+    {
+      "table": "orders_deliverytracking",
+      "name": "orders_deliverytracking_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_deliverytracking_pkey ON public.orders_deliverytracking USING btree (id)"
+    },
+    {
+      "table": "orders_deliveryzone",
+      "name": "orders_deliveryzone_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_deliveryzone_pkey ON public.orders_deliveryzone USING btree (id)"
+    },
+    {
+      "table": "orders_driver",
+      "name": "orders_driver_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_driver_pkey ON public.orders_driver USING btree (id)"
+    },
+    {
+      "table": "orders_driver",
+      "name": "orders_driver_user_id_key",
+      "definition": "CREATE UNIQUE INDEX orders_driver_user_id_key ON public.orders_driver USING btree (user_id)"
+    },
+    {
+      "table": "orders_driver",
+      "name": "orders_driver_zone_id_00ef51c5",
+      "definition": "CREATE INDEX orders_driver_zone_id_00ef51c5 ON public.orders_driver USING btree (zone_id)"
+    },
+    {
+      "table": "orders_order",
+      "name": "orders_order_address_id_0daf897b",
+      "definition": "CREATE INDEX orders_order_address_id_0daf897b ON public.orders_order USING btree (address_id)"
+    },
+    {
+      "table": "orders_order",
+      "name": "orders_order_customer_id_0b76f6a4",
+      "definition": "CREATE INDEX orders_order_customer_id_0b76f6a4 ON public.orders_order USING btree (customer_id)"
+    },
+    {
+      "table": "orders_order",
+      "name": "orders_order_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_order_pkey ON public.orders_order USING btree (id)"
+    },
+    {
+      "table": "orders_order",
+      "name": "orders_order_store_id_138e1a80",
+      "definition": "CREATE INDEX orders_order_store_id_138e1a80 ON public.orders_order USING btree (store_id)"
+    },
+    {
+      "table": "orders_order",
+      "name": "unique_customer_checkout_key",
+      "definition": "CREATE UNIQUE INDEX unique_customer_checkout_key ON public.orders_order USING btree (customer_id, checkout_key)"
+    },
+    {
+      "table": "orders_orderhistory",
+      "name": "orders_orderhistory_changed_by_id_8a7c4255",
+      "definition": "CREATE INDEX orders_orderhistory_changed_by_id_8a7c4255 ON public.orders_orderhistory USING btree (changed_by_id)"
+    },
+    {
+      "table": "orders_orderhistory",
+      "name": "orders_orderhistory_order_id_04c27f47",
+      "definition": "CREATE INDEX orders_orderhistory_order_id_04c27f47 ON public.orders_orderhistory USING btree (order_id)"
+    },
+    {
+      "table": "orders_orderhistory",
+      "name": "orders_orderhistory_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_orderhistory_pkey ON public.orders_orderhistory USING btree (id)"
+    },
+    {
+      "table": "orders_orderitem",
+      "name": "order_variant_unique",
+      "definition": "CREATE UNIQUE INDEX order_variant_unique ON public.orders_orderitem USING btree (order_id, product_variant_id)"
+    },
+    {
+      "table": "orders_orderitem",
+      "name": "orders_orderitem_order_id_fe61a34d",
+      "definition": "CREATE INDEX orders_orderitem_order_id_fe61a34d ON public.orders_orderitem USING btree (order_id)"
+    },
+    {
+      "table": "orders_orderitem",
+      "name": "orders_orderitem_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_orderitem_pkey ON public.orders_orderitem USING btree (id)"
+    },
+    {
+      "table": "orders_orderitem",
+      "name": "orders_orderitem_product_variant_id_148aec19",
+      "definition": "CREATE INDEX orders_orderitem_product_variant_id_148aec19 ON public.orders_orderitem USING btree (product_variant_id)"
+    },
+    {
+      "table": "payments_commissionrule",
+      "name": "payments_commissionrule_pkey",
+      "definition": "CREATE UNIQUE INDEX payments_commissionrule_pkey ON public.payments_commissionrule USING btree (id)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payment_provider_ref_unique_when_present",
+      "definition": "CREATE UNIQUE INDEX payment_provider_ref_unique_when_present ON public.payments_payment USING btree (provider_ref) WHERE (NOT ((provider_ref)::text = ''::text))"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_expires_at_4afb4f5a",
+      "definition": "CREATE INDEX payments_payment_expires_at_4afb4f5a ON public.payments_payment USING btree (expires_at)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_order_id_key",
+      "definition": "CREATE UNIQUE INDEX payments_payment_order_id_key ON public.payments_payment USING btree (order_id)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_pkey",
+      "definition": "CREATE UNIQUE INDEX payments_payment_pkey ON public.payments_payment USING btree (id)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_provider_ref_d305c2fd",
+      "definition": "CREATE INDEX payments_payment_provider_ref_d305c2fd ON public.payments_payment USING btree (provider_ref)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_provider_ref_d305c2fd_like",
+      "definition": "CREATE INDEX payments_payment_provider_ref_d305c2fd_like ON public.payments_payment USING btree (provider_ref varchar_pattern_ops)"
+    },
+    {
+      "table": "payments_payment",
+      "name": "payments_payment_subscription_id_key",
+      "definition": "CREATE UNIQUE INDEX payments_payment_subscription_id_key ON public.payments_payment USING btree (subscription_id)"
+    },
+    {
+      "table": "payments_refund",
+      "name": "payments_refund_payment_id_a70693f7",
+      "definition": "CREATE INDEX payments_refund_payment_id_a70693f7 ON public.payments_refund USING btree (payment_id)"
+    },
+    {
+      "table": "payments_refund",
+      "name": "payments_refund_pkey",
+      "definition": "CREATE UNIQUE INDEX payments_refund_pkey ON public.payments_refund USING btree (id)"
+    },
+    {
+      "table": "payments_transaction",
+      "name": "payments_transaction_payment_id_2f6b2801",
+      "definition": "CREATE INDEX payments_transaction_payment_id_2f6b2801 ON public.payments_transaction USING btree (payment_id)"
+    },
+    {
+      "table": "payments_transaction",
+      "name": "payments_transaction_pkey",
+      "definition": "CREATE UNIQUE INDEX payments_transaction_pkey ON public.payments_transaction USING btree (id)"
+    },
+    {
+      "table": "shopping_cart",
+      "name": "shopping_cart_pkey",
+      "definition": "CREATE UNIQUE INDEX shopping_cart_pkey ON public.shopping_cart USING btree (id)"
+    },
+    {
+      "table": "shopping_cart",
+      "name": "shopping_cart_user_id_key",
+      "definition": "CREATE UNIQUE INDEX shopping_cart_user_id_key ON public.shopping_cart USING btree (user_id)"
+    },
+    {
+      "table": "shopping_cartitem",
+      "name": "shopping_cartitem_cart_id_bb8d3a87",
+      "definition": "CREATE INDEX shopping_cartitem_cart_id_bb8d3a87 ON public.shopping_cartitem USING btree (cart_id)"
+    },
+    {
+      "table": "shopping_cartitem",
+      "name": "shopping_cartitem_cart_id_product_variant_id_bc2fa5a4_uniq",
+      "definition": "CREATE UNIQUE INDEX shopping_cartitem_cart_id_product_variant_id_bc2fa5a4_uniq ON public.shopping_cartitem USING btree (cart_id, product_variant_id)"
+    },
+    {
+      "table": "shopping_cartitem",
+      "name": "shopping_cartitem_pkey",
+      "definition": "CREATE UNIQUE INDEX shopping_cartitem_pkey ON public.shopping_cartitem USING btree (id)"
+    },
+    {
+      "table": "shopping_cartitem",
+      "name": "shopping_cartitem_product_variant_id_951b4b5b",
+      "definition": "CREATE INDEX shopping_cartitem_product_variant_id_951b4b5b ON public.shopping_cartitem USING btree (product_variant_id)"
+    },
+    {
+      "table": "shopping_wishlist",
+      "name": "shopping_wishlist_pkey",
+      "definition": "CREATE UNIQUE INDEX shopping_wishlist_pkey ON public.shopping_wishlist USING btree (id)"
+    },
+    {
+      "table": "shopping_wishlist",
+      "name": "shopping_wishlist_user_id_key",
+      "definition": "CREATE UNIQUE INDEX shopping_wishlist_user_id_key ON public.shopping_wishlist USING btree (user_id)"
+    },
+    {
+      "table": "shopping_wishlistitem",
+      "name": "shopping_wishlistitem_pkey",
+      "definition": "CREATE UNIQUE INDEX shopping_wishlistitem_pkey ON public.shopping_wishlistitem USING btree (id)"
+    },
+    {
+      "table": "shopping_wishlistitem",
+      "name": "shopping_wishlistitem_product_id_aed3c85b",
+      "definition": "CREATE INDEX shopping_wishlistitem_product_id_aed3c85b ON public.shopping_wishlistitem USING btree (product_id)"
+    },
+    {
+      "table": "shopping_wishlistitem",
+      "name": "shopping_wishlistitem_wishlist_id_e591c73e",
+      "definition": "CREATE INDEX shopping_wishlistitem_wishlist_id_e591c73e ON public.shopping_wishlistitem USING btree (wishlist_id)"
+    },
+    {
+      "table": "shopping_wishlistitem",
+      "name": "shopping_wishlistitem_wishlist_id_product_id_0104b15d_uniq",
+      "definition": "CREATE UNIQUE INDEX shopping_wishlistitem_wishlist_id_product_id_0104b15d_uniq ON public.shopping_wishlistitem USING btree (wishlist_id, product_id)"
+    },
+    {
+      "table": "token_blacklist_blacklistedtoken",
+      "name": "token_blacklist_blacklistedtoken_pkey",
+      "definition": "CREATE UNIQUE INDEX token_blacklist_blacklistedtoken_pkey ON public.token_blacklist_blacklistedtoken USING btree (id)"
+    },
+    {
+      "table": "token_blacklist_blacklistedtoken",
+      "name": "token_blacklist_blacklistedtoken_token_id_key",
+      "definition": "CREATE UNIQUE INDEX token_blacklist_blacklistedtoken_token_id_key ON public.token_blacklist_blacklistedtoken USING btree (token_id)"
+    },
+    {
+      "table": "token_blacklist_outstandingtoken",
+      "name": "token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_like",
+      "definition": "CREATE INDEX token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_like ON public.token_blacklist_outstandingtoken USING btree (jti varchar_pattern_ops)"
+    },
+    {
+      "table": "token_blacklist_outstandingtoken",
+      "name": "token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq",
+      "definition": "CREATE UNIQUE INDEX token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq ON public.token_blacklist_outstandingtoken USING btree (jti)"
+    },
+    {
+      "table": "token_blacklist_outstandingtoken",
+      "name": "token_blacklist_outstandingtoken_pkey",
+      "definition": "CREATE UNIQUE INDEX token_blacklist_outstandingtoken_pkey ON public.token_blacklist_outstandingtoken USING btree (id)"
+    },
+    {
+      "table": "token_blacklist_outstandingtoken",
+      "name": "token_blacklist_outstandingtoken_user_id_83bc629a",
+      "definition": "CREATE INDEX token_blacklist_outstandingtoken_user_id_83bc629a ON public.token_blacklist_outstandingtoken USING btree (user_id)"
+    },
+    {
+      "table": "users_permission",
+      "name": "users_permission_code_eb84900c_like",
+      "definition": "CREATE INDEX users_permission_code_eb84900c_like ON public.users_permission USING btree (code varchar_pattern_ops)"
+    },
+    {
+      "table": "users_permission",
+      "name": "users_permission_code_key",
+      "definition": "CREATE UNIQUE INDEX users_permission_code_key ON public.users_permission USING btree (code)"
+    },
+    {
+      "table": "users_permission",
+      "name": "users_permission_pkey",
+      "definition": "CREATE UNIQUE INDEX users_permission_pkey ON public.users_permission USING btree (id)"
+    },
+    {
+      "table": "users_role",
+      "name": "users_role_name_86bbd537_like",
+      "definition": "CREATE INDEX users_role_name_86bbd537_like ON public.users_role USING btree (name varchar_pattern_ops)"
+    },
+    {
+      "table": "users_role",
+      "name": "users_role_name_key",
+      "definition": "CREATE UNIQUE INDEX users_role_name_key ON public.users_role USING btree (name)"
+    },
+    {
+      "table": "users_role",
+      "name": "users_role_pkey",
+      "definition": "CREATE UNIQUE INDEX users_role_pkey ON public.users_role USING btree (id)"
+    },
+    {
+      "table": "users_rolepermission",
+      "name": "users_rolepermission_permission_id_9ec7615d",
+      "definition": "CREATE INDEX users_rolepermission_permission_id_9ec7615d ON public.users_rolepermission USING btree (permission_id)"
+    },
+    {
+      "table": "users_rolepermission",
+      "name": "users_rolepermission_pkey",
+      "definition": "CREATE UNIQUE INDEX users_rolepermission_pkey ON public.users_rolepermission USING btree (id)"
+    },
+    {
+      "table": "users_rolepermission",
+      "name": "users_rolepermission_role_id_d36df18a",
+      "definition": "CREATE INDEX users_rolepermission_role_id_d36df18a ON public.users_rolepermission USING btree (role_id)"
+    },
+    {
+      "table": "users_rolepermission",
+      "name": "users_rolepermission_role_id_permission_id_db5da656_uniq",
+      "definition": "CREATE UNIQUE INDEX users_rolepermission_role_id_permission_id_db5da656_uniq ON public.users_rolepermission USING btree (role_id, permission_id)"
+    },
+    {
+      "table": "users_session",
+      "name": "users_session_pkey",
+      "definition": "CREATE UNIQUE INDEX users_session_pkey ON public.users_session USING btree (id)"
+    },
+    {
+      "table": "users_session",
+      "name": "users_session_user_id_6da579eb",
+      "definition": "CREATE INDEX users_session_user_id_6da579eb ON public.users_session USING btree (user_id)"
+    },
+    {
+      "table": "users_token",
+      "name": "users_token_pkey",
+      "definition": "CREATE UNIQUE INDEX users_token_pkey ON public.users_token USING btree (id)"
+    },
+    {
+      "table": "users_token",
+      "name": "users_token_token_8d431dd8_like",
+      "definition": "CREATE INDEX users_token_token_8d431dd8_like ON public.users_token USING btree (token varchar_pattern_ops)"
+    },
+    {
+      "table": "users_token",
+      "name": "users_token_token_key",
+      "definition": "CREATE UNIQUE INDEX users_token_token_key ON public.users_token USING btree (token)"
+    },
+    {
+      "table": "users_token",
+      "name": "users_token_user_id_af964690",
+      "definition": "CREATE INDEX users_token_user_id_af964690 ON public.users_token USING btree (user_id)"
+    },
+    {
+      "table": "users_user",
+      "name": "users_user_email_243f6e77_like",
+      "definition": "CREATE INDEX users_user_email_243f6e77_like ON public.users_user USING btree (email varchar_pattern_ops)"
+    },
+    {
+      "table": "users_user",
+      "name": "users_user_email_key",
+      "definition": "CREATE UNIQUE INDEX users_user_email_key ON public.users_user USING btree (email)"
+    },
+    {
+      "table": "users_user",
+      "name": "users_user_pkey",
+      "definition": "CREATE UNIQUE INDEX users_user_pkey ON public.users_user USING btree (id)"
+    },
+    {
+      "table": "users_user",
+      "name": "users_user_username_06e46fe6_like",
+      "definition": "CREATE INDEX users_user_username_06e46fe6_like ON public.users_user USING btree (username varchar_pattern_ops)"
+    },
+    {
+      "table": "users_user",
+      "name": "users_user_username_key",
+      "definition": "CREATE UNIQUE INDEX users_user_username_key ON public.users_user USING btree (username)"
+    },
+    {
+      "table": "users_user_groups",
+      "name": "users_user_groups_group_id_9afc8d0e",
+      "definition": "CREATE INDEX users_user_groups_group_id_9afc8d0e ON public.users_user_groups USING btree (group_id)"
+    },
+    {
+      "table": "users_user_groups",
+      "name": "users_user_groups_pkey",
+      "definition": "CREATE UNIQUE INDEX users_user_groups_pkey ON public.users_user_groups USING btree (id)"
+    },
+    {
+      "table": "users_user_groups",
+      "name": "users_user_groups_user_id_5f6f5a90",
+      "definition": "CREATE INDEX users_user_groups_user_id_5f6f5a90 ON public.users_user_groups USING btree (user_id)"
+    },
+    {
+      "table": "users_user_groups",
+      "name": "users_user_groups_user_id_group_id_b88eab82_uniq",
+      "definition": "CREATE UNIQUE INDEX users_user_groups_user_id_group_id_b88eab82_uniq ON public.users_user_groups USING btree (user_id, group_id)"
+    },
+    {
+      "table": "users_user_user_permissions",
+      "name": "users_user_user_permissions_permission_id_0b93982e",
+      "definition": "CREATE INDEX users_user_user_permissions_permission_id_0b93982e ON public.users_user_user_permissions USING btree (permission_id)"
+    },
+    {
+      "table": "users_user_user_permissions",
+      "name": "users_user_user_permissions_pkey",
+      "definition": "CREATE UNIQUE INDEX users_user_user_permissions_pkey ON public.users_user_user_permissions USING btree (id)"
+    },
+    {
+      "table": "users_user_user_permissions",
+      "name": "users_user_user_permissions_user_id_20aca447",
+      "definition": "CREATE INDEX users_user_user_permissions_user_id_20aca447 ON public.users_user_user_permissions USING btree (user_id)"
+    },
+    {
+      "table": "users_user_user_permissions",
+      "name": "users_user_user_permissions_user_id_permission_id_43338c45_uniq",
+      "definition": "CREATE UNIQUE INDEX users_user_user_permissions_user_id_permission_id_43338c45_uniq ON public.users_user_user_permissions USING btree (user_id, permission_id)"
+    },
+    {
+      "table": "users_userrole",
+      "name": "users_userrole_pkey",
+      "definition": "CREATE UNIQUE INDEX users_userrole_pkey ON public.users_userrole USING btree (id)"
+    },
+    {
+      "table": "users_userrole",
+      "name": "users_userrole_role_id_ce44f512",
+      "definition": "CREATE INDEX users_userrole_role_id_ce44f512 ON public.users_userrole USING btree (role_id)"
+    },
+    {
+      "table": "users_userrole",
+      "name": "users_userrole_user_id_ac73ddbe",
+      "definition": "CREATE INDEX users_userrole_user_id_ac73ddbe ON public.users_userrole USING btree (user_id)"
+    },
+    {
+      "table": "users_userrole",
+      "name": "users_userrole_user_id_role_id_00746799_uniq",
+      "definition": "CREATE UNIQUE INDEX users_userrole_user_id_role_id_00746799_uniq ON public.users_userrole USING btree (user_id, role_id)"
+    }
+  ]
+}

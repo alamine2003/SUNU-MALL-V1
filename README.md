@@ -52,6 +52,8 @@ Avant de démarrer les conteneurs, vous devez dupliquer les fichiers d'environne
 cp infra/env/backend.env.example infra/env/backend.env
 cp infra/env/postgres.env.example infra/env/postgres.env
 cp infra/env/redis.env.example infra/env/redis.env
+cp infra/env/minio.env.example infra/env/minio.env
+cp infra/env/grafana.env.example infra/env/grafana.env
 
 # Configuration locale des projets (si vous les lancez hors Docker)
 cp backend/.env.example backend/.env
@@ -89,6 +91,23 @@ les notifications déjà traitées. Documentation :
 [API NabooPay v2](https://docs.naboopay.com/api-reference) et
 [webhooks](https://docs.naboopay.com/api-reference/webhooks).
 
+Les commandes non payées réservent le stock pendant 30 minutes. En production,
+faire fonctionner Celery worker et Beat : la tâche est planifiée toutes les
+5 minutes. La commande suivante permet aussi une exécution manuelle :
+
+```bash
+python manage.py expire_pending_payments
+```
+
+Un paiement confirmé après expiration reprend le stock seulement s'il reste
+disponible. Si la commande est annulée ou le stock épuisé, l'encaissement est
+conservé et une demande de remboursement est créée. Le remboursement reste à
+effectuer manuellement puis à confirmer dans l'administration.
+
+L'écran Abonnements permet de reprendre ou d'annuler un paiement en attente,
+y compris après rechargement. Dans le catalogue, désactiver un produit le
+retire de la vente en conservant ses variantes et l'historique des commandes.
+
 Ne jamais mettre la clé API ou le secret de webhook dans le frontend.
 
 ---
@@ -109,18 +128,18 @@ Une fois la stack démarrée, les services suivants sont accessibles :
 ### 📊 Stockage de Données & Outils d'Administration
 * **Base de données PostgreSQL :** Accessible sur le port `5433` de la machine hôte
 * **Interface PgAdmin :** [http://localhost:5051](http://localhost:5051) (Login par défaut : `admin@sunumall.com` / `admin`)
-* **Console Web MinIO (S3) :** [http://localhost:9011](http://localhost:9011) (Identifiants : `minioadmin` / `minioadmin`)
+* **Console Web MinIO (S3) :** [http://localhost:9011](http://localhost:9011) (identifiants configurés dans `infra/env/minio.env`)
 * **API S3 MinIO (Stockage Media) :** [http://localhost:9010](http://localhost:9010)
 
 ---
 
 ## 📈 Monitoring et Supervision
 
-La plateforme intègre une stack de surveillance prête pour la production pour mesurer la santé de nos conteneurs et analyser les pannes.
+Les conteneurs Prometheus et Grafana sont fournis, mais leur présence ne constitue pas une supervision de production. La configuration versionnée collecte uniquement les métriques de Prometheus lui-même ; les exporters, alertes et tableaux de bord applicatifs restent à brancher.
 
-* **Prometheus :** [http://localhost:9091](http://localhost:9091) — Collecte en continu les métriques de la base de données, de Django et du système.
+* **Prometheus :** [http://localhost:9091](http://localhost:9091) — Configuration minimale ; collecte applicative et base de données à configurer.
 * **Grafana :** [http://localhost:3031](http://localhost:3031) — Permet de visualiser les métriques collectées via des tableaux de bord. (Identifiants : `admin` / mot de passe configuré dans Grafana).
-* **Loki & Promtail (Centralisation des logs) :** Centralise les journaux de l'ensemble des conteneurs pour permettre une recherche rapide de pannes directement dans Grafana.
+* **Centralisation des logs :** Loki/Promtail ne sont pas déployés par les fichiers Compose versionnés.
 
 ---
 
@@ -139,7 +158,7 @@ Des scripts automatisés sont à votre disposition dans le dossier `infra/script
   *(Crée une archive SQL et tar.gz dans un dossier `backups/`)*
 * **Restaurer une sauvegarde :**
   ```bash
-  bash infra/scripts/restore.sh <nom_du_fichier_sql> <nom_du_fichier_media>
+  bash infra/scripts/restore.sh YYYYMMDD_HHMMSS --confirm-restore
   ```
 
 ---
@@ -168,3 +187,25 @@ Exemples :
 3. Attendez le passage réussi des tests automatiques sur la CI (GitHub Actions).
 4. Obtenez l'approbation d'un des relecteurs responsables désignés dans le fichier `CODEOWNERS`.
 5. Fusionnez la PR en mode *Squash and Merge*.
+
+## Revue approfondie du 5 septembre 2026
+
+Voir [le rapport, les mesures et les limites](docs/audit-approfondi-2026-09-05.md) et [les scripts de reproduction](backend/tools/README.md). Les contrôles locaux ne valent pas validation du déploiement distant.
+
+### Sessions web et mise en production
+
+Le navigateur conserve uniquement le jeton d'accès en mémoire. Le renouvellement utilise un cookie HttpOnly et les routes `/api/auth/browser/`, protégées par CSRF. Les anciens jetons du localStorage sont effacés : une reconnexion sera nécessaire lors de la migration. Les routes JWT JSON existantes restent disponibles aux autres clients.
+
+Préférer frontend et API sous le même domaine, via le reverse proxy ; le Compose de production construit maintenant le frontend avec `/api`. Pour des sites distincts (GitHub Pages et Railway, par exemple), configurer `AUTH_REFRESH_COOKIE_SAMESITE=None`, HTTPS et les origines exactes `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS`. Cela aligne aussi le cookie CSRF. Les navigateurs bloquant les cookies tiers peuvent toujours empêcher cette configuration de fonctionner : un domaine commun évite cette dépendance.
+
+Le mode production exige une clé Django aléatoire d'au moins 50 caractères, les hôtes autorisés, une URL frontend HTTPS et un backend email autre que console. Configurer SMTP réellement ; l'audit a utilisé des emails en mémoire. Redis doit être joignable : les actions sensibles échouent avec 503 si leur compteur partagé ne peut pas être contrôlé. `TRUSTED_PROXY_COUNT` doit correspondre aux proxies de confiance qui réécrivent les en-têtes entrants.
+
+Le proxy de production exige `infra/nginx/ssl/fullchain.pem` et `privkey.pem` ; la configuration locale reste en HTTP. Le renouvellement des certificats reste à organiser. Les identifiants `minioadmin` des exemples sont réservés au développement.
+
+Le stockage utilise désormais `STORAGES` de Django. Créer le bucket S3/MinIO, configurer son accès public aux images et `MINIO_PUBLIC_ENDPOINT`. Si des médias avaient été écrits sur le disque local par l'ancienne configuration ignorée, les transférer au bucket en préservant les clés avant la bascule ; aucune donnée existante n'a été déplacée automatiquement.
+
+Appliquer les migrations versionnées après sauvegarde. Railway exécute désormais `python manage.py migrate --noinput` comme commande de pré-déploiement et interrompt la mise en ligne si elle échoue. Vérifier d'abord les anciens stocks négatifs, réservations supérieures au stock et lignes de commande/paiement dupliquées : les migrations les détectent avec un message explicite, refusent les nouvelles contraintes et ne corrigent pas arbitrairement les données. `checkout_key` est un UUID facultatif : réutiliser la même clé et le même contenu lors d'une reprise réseau retourne la commande existante (200) ; un contenu différent retourne 409. Les clients sans clé conservent le comportement précédent.
+
+Le fichier `infra/env/backend.env` alimente Django. Les fichiers `infra/env/minio.env` et `infra/env/grafana.env` alimentent uniquement les services correspondants afin de ne pas leur transmettre les secrets du backend. Les identifiants MinIO des deux fichiers doivent correspondre.
+
+Les scripts `infra/scripts/` fonctionnent indépendamment du dossier courant. Les sauvegardes sont privées (`umask 077`) et les fichiers incomplets restent temporaires. Pour une sauvegarde cohérente DB/médias, suspendre les écritures ; pour une restauration, arrêter aussi MinIO. Restaurer d'abord sur une copie et contrôler le résultat ; les scripts n'effectuent pas une restauration atomique entre PostgreSQL et le système de fichiers. Externaliser et chiffrer les archives, puis tester régulièrement leur restauration.
