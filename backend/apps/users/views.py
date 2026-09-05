@@ -47,9 +47,14 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = User.objects.all().order_by("-created_at")
+        if self.request.user.has_role(Role.RoleName.ADMIN):
+            queryset = User.objects.all().order_by("-created_at")
+        else:
+            # Un compte authentifié ne doit pas pouvoir énumérer les emails,
+            # téléphones et rôles des autres utilisateurs.
+            queryset = User.objects.filter(pk=self.request.user.pk)
         role = self.request.query_params.get("role")
-        if role:
+        if role and self.request.user.has_role(Role.RoleName.ADMIN):
             queryset = queryset.filter(user_roles__role__name=role)
         return queryset
 
@@ -57,7 +62,7 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsAdmin]
         else:
-            permission_classes = [permissions.IsAuthenticated]
+            return super().get_permissions()
         return [permission() for permission in permission_classes]
 
     @action(detail=False, methods=['get'], url_path='admin/dashboard/stats', permission_classes=[IsAdmin])

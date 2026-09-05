@@ -2,7 +2,8 @@
 Commandes et livraison.
 """
 import uuid
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from django.utils import timezone
 from apps.users.models import User
 from apps.catalog.models import ProductVariant, Store
@@ -15,8 +16,46 @@ class DeliveryZone(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def contains(self, lat, lng):
-        # Simplified check, should use proper GeoJSON library
-        return True
+        """Teste un point [lat, lng] dans un GeoJSON Polygon/MultiPolygon."""
+        try:
+            point_lat, point_lng = float(lat), float(lng)
+        except (TypeError, ValueError):
+            return False
+        geometry = self.boundary_geojson
+        if isinstance(geometry, dict) and geometry.get("type") == "Feature":
+            geometry = geometry.get("geometry")
+        if not isinstance(geometry, dict):
+            return False
+
+        def in_ring(ring):
+            if not isinstance(ring, list) or len(ring) < 4:
+                return False
+            inside = False
+            for first, second in zip(ring, ring[1:] + ring[:1]):
+                try:
+                    first_lng, first_lat = float(first[0]), float(first[1])
+                    second_lng, second_lat = float(second[0]), float(second[1])
+                except (IndexError, TypeError, ValueError):
+                    return False
+                cross = (point_lng - first_lng) * (second_lat - first_lat) - (point_lat - first_lat) * (second_lng - first_lng)
+                if abs(cross) < 1e-12 and min(first_lng, second_lng) <= point_lng <= max(first_lng, second_lng) and min(first_lat, second_lat) <= point_lat <= max(first_lat, second_lat):
+                    return True
+                if (first_lat > point_lat) != (second_lat > point_lat):
+                    intersection_lng = (second_lng - first_lng) * (point_lat - first_lat) / (second_lat - first_lat) + first_lng
+                    if point_lng < intersection_lng:
+                        inside = not inside
+            return inside
+
+        def in_polygon(polygon):
+            return bool(polygon) and in_ring(polygon[0]) and not any(in_ring(hole) for hole in polygon[1:])
+
+        geometry_type = geometry.get("type")
+        coordinates = geometry.get("coordinates")
+        if geometry_type == "Polygon":
+            return in_polygon(coordinates)
+        if geometry_type == "MultiPolygon":
+            return any(in_polygon(polygon) for polygon in coordinates or [])
+        return False
 
     def __str__(self):
         return self.name
@@ -40,8 +79,14 @@ class Driver(models.Model):
         return self.availability_status == self.AvailabilityStatus.AVAILABLE
 
     def current_position(self):
-        # Should get last known position from DeliveryTracking
-        return None
+        tracking = DeliveryTracking.objects.filter(delivery__driver=self).first()
+        if not tracking:
+            return None
+        return {
+            "latitude": tracking.latitude,
+            "longitude": tracking.longitude,
+            "recorded_at": tracking.recorded_at,
+        }
 
     def __str__(self):
         return f"Driver {self.user.get_full_name()}"
@@ -56,7 +101,7 @@ class Delivery(models.Model):
         CANCELLED = 'cancelled', 'Cancelled'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order = models.OneToOneField('Order', on_delete=models.CASCADE, related_name='delivery')
+    order = models.OneToOneField('Order', on_delete=models.PROTECT, related_name='delivery')
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
     picked_up_at = models.DateTimeField(null=True, blank=True)
@@ -64,11 +109,21 @@ class Delivery(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @transaction.atomic
     def assign_driver(self, driver):
-        self.driver = driver
-        self.status = self.Status.ASSIGNED
-        self.save()
-        self._notify_driver_assigned()
+        order = Order.objects.select_for_update().get(pk=self.order_id)
+        delivery = Delivery.objects.select_for_update().get(pk=self.pk)
+        if order.status not in {Order.Status.PAID, Order.Status.PROCESSING}:
+            raise ValidationError("Seule une commande payée peut être affectée.")
+        if delivery.status not in {self.Status.PENDING, self.Status.ASSIGNED}:
+            raise ValidationError("Cette livraison ne peut plus être réaffectée.")
+        if driver.availability_status != Driver.AvailabilityStatus.AVAILABLE:
+            raise ValidationError("Ce livreur n'est pas disponible.")
+        delivery.driver = driver
+        delivery.status = self.Status.ASSIGNED
+        delivery.save(update_fields=['driver', 'status', 'updated_at'])
+        self.refresh_from_db()
+        transaction.on_commit(self._notify_driver_assigned)
 
     def _notify_driver_assigned(self):
         from apps.monetization.models import Notification
@@ -183,9 +238,9 @@ class Address(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def distance_to(self, lat, lng):
-        # Simplified distance calculation
-        if self.latitude and self.longitude and lat and lng:
-            return ((self.latitude - lat)**2 + (self.longitude - lng)**2)**0.5
+        if self.latitude is not None and self.longitude is not None and lat is not None and lng is not None:
+            from .pricing import haversine_km
+            return haversine_km(self.latitude, self.longitude, lat, lng)
         return None
 
     def __str__(self):
@@ -201,38 +256,126 @@ class Order(models.Model):
         DELIVERED = 'delivered', 'Delivered'
         CANCELLED = 'cancelled', 'Cancelled'
 
+    class StockStatus(models.TextChoices):
+        NONE = 'none', 'Aucune réservation'
+        RESERVED = 'reserved', 'Réservé'
+        COMMITTED = 'committed', 'Déduit'
+        RELEASED = 'released', 'Libéré'
+
+    # Périmètre commun aux chiffres de vente (journalier et résumé).
+    SALES_STATUSES = (Status.PAID, Status.PROCESSING, Status.SHIPPED, Status.DELIVERED)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders')
+    customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name='orders')
+    store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='orders')
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, related_name='orders')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
+    stock_status = models.CharField(max_length=20, choices=StockStatus.choices, default=StockStatus.NONE)
+    checkout_key = models.UUIDField(null=True, blank=True, editable=False)
+    checkout_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
 
+        constraints = [
+            models.UniqueConstraint(fields=['customer', 'checkout_key'], name='unique_customer_checkout_key'),
+        ]
+
     def can_be_cancelled(self):
         return self.status in [self.Status.PENDING, self.Status.PAID]
 
     def recalculate_total(self):
         self.total_amount = sum(item.subtotal() for item in self.items.all()) + self.delivery_fee
-        self.save()
+        self.save(update_fields=["total_amount", "updated_at"])
 
     def change_status(self, new_status):
-        old_status = self.status
-        self.status = new_status
-        self.save()
-        OrderHistory.objects.create(
-            order=self,
-            previous_status=old_status,
-            new_status=new_status,
-            changed_by=self.customer
-        )
-        from apps.analytics.models import SalesStatistic
-        SalesStatistic.compute_for_store(self.store, self.created_at.date())
+        allowed_transitions = {
+            self.Status.PENDING: {self.Status.PAID, self.Status.CANCELLED},
+            self.Status.PAID: {self.Status.PROCESSING, self.Status.SHIPPED, self.Status.DELIVERED, self.Status.CANCELLED},
+            self.Status.PROCESSING: {self.Status.SHIPPED, self.Status.DELIVERED, self.Status.CANCELLED},
+            self.Status.SHIPPED: {self.Status.DELIVERED, self.Status.CANCELLED},
+            self.Status.DELIVERED: set(),
+            self.Status.CANCELLED: set(),
+        }
+        with transaction.atomic():
+            locked = type(self).objects.select_for_update().get(pk=self.pk)
+            if new_status == locked.status:
+                return locked
+            if new_status not in allowed_transitions.get(locked.status, set()):
+                raise ValidationError(f"Transition de commande invalide : {locked.status} → {new_status}.")
+            old_status = locked.status
+            locked.status = new_status
+            locked.save(update_fields=["status", "updated_at"])
+            OrderHistory.objects.create(
+                order=locked,
+                previous_status=old_status,
+                new_status=new_status,
+                changed_by=locked.customer,
+            )
+            from apps.analytics.models import SalesStatistic
+            SalesStatistic.compute_for_store(locked.store, locked.created_at.date())
+            self.refresh_from_db()
+            return self
+
+    def commit_reserved_stock(self):
+        """Déduit le stock une fois, ou refuse si une réservation libérée est perdue.
+
+        Un succès tardif peut suivre une expiration. Dans ce cas le stock
+        doit encore être disponible pour toutes les lignes, sans prendre
+        les réservations d'autres commandes. Les commandes historiques
+        sans réservation suivent cette même vérification.
+        """
+        from apps.catalog.models import Inventory
+
+        with transaction.atomic():
+            order = type(self).objects.select_for_update().get(pk=self.pk)
+            if order.stock_status == self.StockStatus.COMMITTED:
+                return True
+            stocks = []
+            for item in order.items.order_by("product_variant_id"):
+                inventory = Inventory.objects.select_for_update().get(variant_id=item.product_variant_id)
+                if order.stock_status == self.StockStatus.RESERVED:
+                    if inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
+                        raise ValidationError("Le stock réservé de la commande est incohérent.")
+                elif inventory.available() < item.quantity:
+                    return False
+                stocks.append((item, inventory))
+            # Rien n'est écrit avant d'avoir vérifié toutes les lignes.
+            for item, inventory in stocks:
+                inventory.quantity -= item.quantity
+                if order.stock_status == self.StockStatus.RESERVED:
+                    inventory.reserved_quantity -= item.quantity
+                inventory.save(update_fields=["quantity", "reserved_quantity", "updated_at"])
+            order.stock_status = self.StockStatus.COMMITTED
+            order.save(update_fields=["stock_status", "updated_at"])
+            self.refresh_from_db()
+            return True
+
+    def release_stock(self):
+        """Libère une réservation ou remet en stock une vente annulée."""
+        from apps.catalog.models import Inventory
+
+        with transaction.atomic():
+            order = type(self).objects.select_for_update().get(pk=self.pk)
+            if order.stock_status not in {self.StockStatus.RESERVED, self.StockStatus.COMMITTED}:
+                return False
+            for item in order.items.order_by("product_variant_id"):
+                inventory = Inventory.objects.select_for_update().get(variant_id=item.product_variant_id)
+                if order.stock_status == self.StockStatus.RESERVED:
+                    if inventory.reserved_quantity < item.quantity:
+                        raise ValidationError("La réservation de stock de la commande est incohérente.")
+                    inventory.reserved_quantity -= item.quantity
+                else:
+                    inventory.quantity += item.quantity
+                inventory.save(update_fields=["quantity", "reserved_quantity", "updated_at"])
+            order.stock_status = self.StockStatus.RELEASED
+            order.save(update_fields=["stock_status", "updated_at"])
+            self.refresh_from_db()
+            return True
 
     def notify_merchant_cancelled(self):
         from apps.monetization.models import Notification
@@ -259,10 +402,16 @@ class Order(models.Model):
 class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='order_items')
+    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, related_name='order_items')
     quantity = models.IntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(quantity__gt=0), name='order_item_positive_quantity'),
+            models.UniqueConstraint(fields=['order', 'product_variant'], name='order_variant_unique'),
+        ]
 
     def subtotal(self):
         return self.quantity * self.unit_price

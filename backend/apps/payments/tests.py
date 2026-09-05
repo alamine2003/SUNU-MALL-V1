@@ -5,9 +5,12 @@ d'accès (un client ne voit que ses propres paiements).
 import hashlib
 import hmac
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
+from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from apps.users.models import User, Role, UserRole
@@ -88,6 +91,17 @@ class PaymentSandboxTests(TestCase):
         response = self.client.delete(f"/api/orders/{self.order.id}/")
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertTrue(Order.objects.filter(pk=self.order.id).exists())
+
+    def test_expire_pending_payment_is_idempotent(self):
+        self.payment.expires_at = timezone.now() - timedelta(minutes=1)
+        self.payment.save(update_fields=["expires_at"])
+
+        call_command("expire_pending_payments")
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.FAILED)
+
+        call_command("expire_pending_payments")
+        self.assertEqual(Payment.objects.filter(status=Payment.Status.FAILED).count(), 1)
 
 
 class NabooPayTests(PaymentSandboxTests):

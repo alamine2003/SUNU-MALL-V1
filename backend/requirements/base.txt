@@ -1,31 +1,31 @@
 # Dépendances de base — toujours nécessaires, quel que soit l'environnement.
 # Garder ce fichier léger : tout ce qui est spécifique à l'IA va dans ia.txt
 
-Django>=5.0,<5.1
-djangorestframework>=3.15,<3.16
-django-cors-headers>=4.3,<4.4
-django-filter>=24.1,<24.2
+Django>=5.2,<5.3
+djangorestframework>=3.17,<3.18
+django-cors-headers>=4.9,<5.0
+django-filter>=26.1,<27.0
 psycopg2-binary>=2.9,<3.0
 
 # Tâches asynchrones
 celery>=5.4,<5.5
 redis>=5.0,<5.1
-django-celery-beat>=2.6,<2.7
+django-celery-beat>=2.9,<3.0
 
 # Stockage de fichiers (compatible MinIO via API S3)
 django-storages>=1.14,<1.15
 boto3>=1.34,<1.35
-Pillow>=10.3,<10.4
+Pillow>=12.3,<12.4
 
 # Configuration & sécurité
 python-decouple>=3.8,<3.9
 gunicorn>=22.0,<22.1
 
 # JWT Authentication
-djangorestframework-simplejwt>=5.3,<5.4
+djangorestframework-simplejwt>=5.5,<5.6
 
 # Swagger/OpenAPI Documentation
-drf-spectacular>=0.27,<0.28
+drf-spectacular>=0.30,<0.31
 
 # Client API Anthropic (Claude) — juste un client HTTP, pas une lib ML
 # lourde (torch, transformers...), donc reste ici plutôt que dans ia.txt.

@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import update_last_login
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.settings import api_settings
@@ -16,6 +16,7 @@ from .serializers import (
 )
 from .utils import email_verification_token, send_verification_email
 from apps.users.models import User
+from .emails import email_de_connexion, utilisateur_par_email
 
 
 class VerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -26,7 +27,7 @@ class VerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         authenticate_kwargs = {
-            self.username_field: attrs[self.username_field],
+            self.username_field: email_de_connexion(attrs[self.username_field]),
             "password": attrs["password"],
         }
         request = self.context.get("request")
@@ -61,6 +62,7 @@ class VerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class VerifiedTokenObtainPairView(TokenObtainPairView):
     serializer_class = VerifiedTokenObtainPairSerializer
+    throttle_scope = "auth_login"
 
 class RegisterView(generics.CreateAPIView):
     """
@@ -70,6 +72,7 @@ class RegisterView(generics.CreateAPIView):
     """
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_register"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -104,6 +107,7 @@ class LoginView(generics.GenericAPIView):
     """
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_login"
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -139,6 +143,7 @@ class VerifyEmailView(APIView):
     Vérifie l'email de l'utilisateur via le token envoyé par email.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_verify"
 
     def get(self, request):
         uidb64 = request.query_params.get('uid')
@@ -186,26 +191,22 @@ class ResendVerificationEmailView(generics.GenericAPIView):
     """
     serializer_class = ResendVerificationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_resend"
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user = utilisateur_par_email(email)
+        if user is None:
             # On ne révèle pas si l'email existe ou non pour des raisons de sécurité
             return Response({
                 "message": "Si cet email est associé à un compte, un email de vérification a été envoyé."
             }, status=status.HTTP_200_OK)
         
-        if user.is_verified:
-            return Response({
-                "message": "Votre email a déjà été vérifié."
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        send_verification_email(user)
+        if not user.is_verified:
+            send_verification_email(user)
         return Response({
             "message": "Si cet email est associé à un compte, un email de vérification a été envoyé."
         }, status=status.HTTP_200_OK)
@@ -220,6 +221,7 @@ class GuestCheckoutView(generics.GenericAPIView):
     """
     serializer_class = GuestCheckoutSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_guest_checkout"
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -249,8 +251,11 @@ class SetPasswordView(generics.GenericAPIView):
     """Convertit le compte invité de l'utilisateur connecté en compte complet (avec mot de passe)."""
     serializer_class = SetPasswordSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "auth_set_password"
 
     def post(self, request, *args, **kwargs):
+        if request.user.has_usable_password():
+            raise ValidationError("Ce compte possède déjà un mot de passe.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data['password'])

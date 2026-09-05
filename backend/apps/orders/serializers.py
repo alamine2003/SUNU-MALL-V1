@@ -8,6 +8,17 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "label", "street", "city", "country", "latitude", "longitude", "created_at"]
         read_only_fields = ["id", "user", "created_at"]
 
+    def validate(self, attrs):
+        latitude = attrs.get("latitude", getattr(self.instance, "latitude", None))
+        longitude = attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if latitude is not None and not -90 <= latitude <= 90:
+            raise serializers.ValidationError({"latitude": "La latitude doit être comprise entre -90 et 90."})
+        if longitude is not None and not -180 <= longitude <= 180:
+            raise serializers.ValidationError({"longitude": "La longitude doit être comprise entre -180 et 180."})
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError("La latitude et la longitude doivent être fournies ensemble.")
+        return attrs
+
 
 class DeliveryZoneSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,7 +37,7 @@ class DriverSerializer(serializers.ModelSerializer):
             "id", "user", "full_name", "phone", "zone", "vehicle_type",
             "availability_status", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
 
 
 class DeliveryTrackingSerializer(serializers.ModelSerializer):
@@ -34,6 +45,16 @@ class DeliveryTrackingSerializer(serializers.ModelSerializer):
         model = DeliveryTracking
         fields = ["id", "delivery", "latitude", "longitude", "recorded_at"]
         read_only_fields = ["id", "recorded_at"]
+
+    def validate_latitude(self, value):
+        if not -90 <= value <= 90:
+            raise serializers.ValidationError("La latitude doit être comprise entre -90 et 90.")
+        return value
+
+    def validate_longitude(self, value):
+        if not -180 <= value <= 180:
+            raise serializers.ValidationError("La longitude doit être comprise entre -180 et 180.")
+        return value
 
 
 class DeliverySerializer(serializers.ModelSerializer):
@@ -50,7 +71,7 @@ class DeliverySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "order", "created_at", "updated_at", "last_position"]
 
     def get_last_position(self, obj):
-        tracking = obj.trackings.first()
+        tracking = obj.latest_trackings[0] if getattr(obj, "latest_trackings", None) else (None if hasattr(obj, "latest_trackings") else obj.trackings.first())
         if not tracking:
             return None
         return {
@@ -101,7 +122,7 @@ class OrderSerializer(serializers.ModelSerializer):
         payment = getattr(obj, "payment", None)
         if not payment:
             return None
-        refund = payment.refunds.order_by("-created_at").first()
+        refund = payment.latest_refunds[0] if getattr(payment, "latest_refunds", None) else (None if hasattr(payment, "latest_refunds") else payment.refunds.order_by("-created_at").first())
         refund_data = (
             {"id": refund.id, "status": refund.status, "amount": str(refund.amount), "refunded_at": refund.refunded_at}
             if refund
@@ -113,7 +134,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class CheckoutItemInputSerializer(serializers.Serializer):
     """Un article du panier envoyé lors du passage de commande."""
     product_variant = serializers.UUIDField()
-    quantity = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=999)
 
 
 class CheckoutSerializer(serializers.Serializer):
@@ -126,11 +147,22 @@ class CheckoutSerializer(serializers.Serializer):
     `delivery_type` est transmis, le montant est recalculé côté serveur
     (voir `apps.orders.pricing.compute_delivery_fee`).
     """
+    checkout_key = serializers.UUIDField(required=False)
     store = serializers.UUIDField()
     address = serializers.UUIDField()
     delivery_type = serializers.ChoiceField(choices=["pickup", "standard", "express"], default="standard")
-    payment_method = serializers.ChoiceField(choices=["wave", "orange_money", "card"])
+    payment_method = serializers.ChoiceField(choices=["wave", "orange_money"])
     items = CheckoutItemInputSerializer(many=True)
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("Le panier ne peut pas être vide.")
+        if len(value) > 50:
+            raise serializers.ValidationError("Une commande ne peut pas contenir plus de 50 articles.")
+        variant_ids = [item["product_variant"] for item in value]
+        if len(variant_ids) != len(set(variant_ids)):
+            raise serializers.ValidationError("Une même variante ne peut apparaître qu'une seule fois.")
+        return value
 
 
 class DeliveryQuoteSerializer(serializers.Serializer):

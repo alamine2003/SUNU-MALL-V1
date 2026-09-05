@@ -2,7 +2,8 @@
 Catalogue : magasins, catégories, marques, produits, variants, inventaire et avis.
 """
 import uuid
-from django.db import models
+from django.db import models, transaction
+from django.core.exceptions import ValidationError
 from apps.users.models import User
 
 
@@ -22,7 +23,7 @@ class Store(models.Model):
         SUSPENDED = 'suspended', 'Suspended'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stores')
+    owner = models.ForeignKey(User, on_delete=models.PROTECT, related_name='stores')
     category = models.ForeignKey(StoreCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='stores')
     name = models.CharField(max_length=255)
     # Informations soumises à la création, pour que l'admin ait de quoi
@@ -46,14 +47,7 @@ class Store(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    def get_active_products(self):
-        return self.products.filter(status='active')
 
-    def calculate_rating(self):
-        reviews = Review.objects.filter(product__store=self)
-        if reviews.exists():
-            return sum(review.rating for review in reviews) / reviews.count()
-        return 0
 
     def __str__(self):
         return self.name
@@ -78,9 +72,6 @@ class StoreSettings(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def is_open_now(self):
-        # Simplified check, business_hours should have appropriate structure
-        return True
 
     def __str__(self):
         return f"Settings for {self.store.name}"
@@ -98,16 +89,7 @@ class Category(models.Model):
         verbose_name_plural = "Categories"
         ordering = ['name']
 
-    def get_children(self):
-        return self.children.all()
 
-    def get_breadcrumb(self):
-        breadcrumb = [self]
-        current = self.parent
-        while current:
-            breadcrumb.insert(0, current)
-            current = current.parent
-        return breadcrumb
 
     def __str__(self):
         return self.name
@@ -130,7 +112,7 @@ class Product(models.Model):
         INACTIVE = 'inactive', 'Inactive'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products')
+    store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name='products')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     name = models.CharField(max_length=255)
@@ -143,17 +125,8 @@ class Product(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    def get_primary_image(self):
-        return self.images.order_by('position').first()
 
-    def is_in_stock(self):
-        return any(variant.inventory.available() > 0 for variant in self.variants.all() if hasattr(variant, 'inventory'))
 
-    def average_rating(self):
-        reviews = self.reviews.all()
-        if reviews.exists():
-            return sum(review.rating for review in reviews) / reviews.count()
-        return 0
 
     def __str__(self):
         return self.name
@@ -182,7 +155,7 @@ class ProductImage(models.Model):
 
 class ProductVariant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='variants')
     sku = models.CharField(max_length=100, unique=True)
     attributes = models.JSONField(default=dict)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -192,8 +165,6 @@ class ProductVariant(models.Model):
     def get_store(self):
         return self.product.store
 
-    def get_price(self):
-        return self.price
 
     def is_available(self):
         return hasattr(self, 'inventory') and self.inventory.available() > 0
@@ -204,22 +175,34 @@ class ProductVariant(models.Model):
 
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    variant = models.OneToOneField(ProductVariant, on_delete=models.CASCADE, related_name='inventory')
+    variant = models.OneToOneField(ProductVariant, on_delete=models.PROTECT, related_name='inventory')
     quantity = models.IntegerField(default=0)
     reserved_quantity = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def reserve(self, qty):
-        if self.available() >= qty:
-            self.reserved_quantity += qty
-            self.save()
-            return True
-        return False
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(quantity__gte=0), name='inventory_quantity_nonnegative'),
+            models.CheckConstraint(condition=models.Q(reserved_quantity__gte=0), name='inventory_reserved_nonnegative'),
+            models.CheckConstraint(condition=models.Q(quantity__gte=models.F('reserved_quantity')), name='inventory_covers_reservations'),
+        ]
 
-    def release(self, qty):
-        self.reserved_quantity = max(0, self.reserved_quantity - qty)
-        self.save()
+    def reserve(self, qty):
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValidationError("La quantité à réserver doit être un entier positif.")
+        with transaction.atomic():
+            inventory = Inventory.objects.select_for_update().get(pk=self.pk)
+            if inventory.available() < qty:
+                self.refresh_from_db()
+                return False
+            inventory.reserved_quantity += qty
+            inventory.save(update_fields=["reserved_quantity", "updated_at"])
+            self.refresh_from_db()
+            return True
+
+
+
 
     def available(self):
         return self.quantity - self.reserved_quantity

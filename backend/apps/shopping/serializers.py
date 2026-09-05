@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Wishlist, WishlistItem, Cart, CartItem
+from apps.catalog.models import ProductVariant
 
 
 class WishlistItemSerializer(serializers.ModelSerializer):
@@ -47,3 +48,19 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
         return obj.total_price()
+
+
+class CartItemInputSerializer(serializers.Serializer):
+    """Payload commun pour ajouter ou modifier une ligne de panier."""
+
+    product_variant = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1, max_value=999)
+
+    def validate_product_variant(self, value):
+        if not ProductVariant.objects.filter(
+            pk=value,
+            product__status="active",
+            product__store__status="active",
+        ).exists():
+            raise serializers.ValidationError("Cette variante n'est plus disponible.")
+        return value

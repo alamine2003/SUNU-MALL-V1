@@ -31,8 +31,6 @@ class User(AbstractUser):
     class Meta:
         ordering = ['-created_at']
 
-    def check_password(self, raw_password):
-        return super().check_password(raw_password)
 
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
@@ -157,6 +155,8 @@ class Token(models.Model):
 @receiver(post_migrate)
 def create_default_roles_and_permissions(sender, **kwargs):
     """Créer les rôles et permissions par défaut après les migrations."""
+    if sender.label != "users":
+        return
     from django.apps import apps
     Role = apps.get_model('users', 'Role')
     Permission = apps.get_model('users', 'Permission')

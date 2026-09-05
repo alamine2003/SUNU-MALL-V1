@@ -3,7 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from apps.catalog.models import Category, Product, Store
+from apps.catalog.models import Category, Store
+from apps.catalog.queries import visible_products, product_details
 from apps.catalog.serializers import ProductSerializer
 from apps.users.models import Role
 from .models import RecommendationLog
@@ -104,7 +105,7 @@ class RecommendationViewSet(viewsets.ReadOnlyModelViewSet):
         """
         log = RecommendationLog.compute_for_user(request.user)
         product_ids = log.payload.get("recommended_product_ids", [])
-        products = Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE)
+        products = product_details(visible_products().filter(id__in=product_ids))
         products_by_id = {str(p.id): p for p in products}
         ordered = [products_by_id[pid] for pid in product_ids if pid in products_by_id]
         return Response(ProductSerializer(ordered, many=True).data)

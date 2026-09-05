@@ -23,7 +23,8 @@ COPY requirements/ requirements/
 # ia.txt   = libs IA (souvent lourdes : numpy, torch, transformers...)
 # dev.txt  = outils de dev (pytest, flake8...), jamais en prod
 ARG REQUIREMENTS_FILE=requirements/base.txt
-RUN pip install --no-cache-dir --user -r ${REQUIREMENTS_FILE} \
+RUN python -m pip install --no-cache-dir --upgrade 'pip>=26.2,<27' \
+    && pip install --no-cache-dir --user -r ${REQUIREMENTS_FILE} \
     && python -c "import drf_spectacular"
 
 # ---- Stage 2 : image finale, légère ----
@@ -32,6 +33,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Seulement les libs système nécessaires À L'EXÉCUTION (pas à la compilation)
+RUN python -m pip install --no-cache-dir --upgrade 'pip>=26.2,<27'
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*

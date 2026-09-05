@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Avg, Count, Sum
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, permissions
 from rest_framework.exceptions import PermissionDenied
@@ -73,7 +73,7 @@ class StoreSummaryView(APIView):
             raise PermissionDenied("Vous ne pouvez consulter que les statistiques de votre propre boutique.")
 
         since = timezone.now() - timedelta(days=30)
-        orders = Order.objects.filter(store=store, created_at__gte=since).exclude(status=Order.Status.CANCELLED)
+        orders = Order.objects.filter(store=store, created_at__gte=since, status__in=Order.SALES_STATUSES)
         aggregate = orders.aggregate(revenue=Sum("total_amount"), count=Count("id"))
         revenue = aggregate["revenue"] or Decimal("0")
         order_count = aggregate["count"] or 0

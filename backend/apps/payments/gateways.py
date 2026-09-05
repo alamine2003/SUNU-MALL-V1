@@ -1,6 +1,7 @@
 """Passerelle NabooPay pour les encaissements Wave et Orange Money."""
 
 from decimal import Decimal
+from urllib.parse import urlparse
 
 import httpx
 from django.conf import settings
@@ -20,7 +21,7 @@ class SandboxGateway(BasePaymentGateway):
     """Simulation locale qui ne contacte jamais un fournisseur."""
 
     def initiate(self, payment) -> dict:
-        provider_ref = payment.provider_ref or f"SANDBOX-{payment.id.hex[:10].upper()}"
+        provider_ref = payment.provider_ref or f"SANDBOX-{payment.id.hex.upper()}"
         payment.provider_ref = provider_ref
         payment.save(update_fields=["provider_ref", "updated_at"])
         return {
@@ -100,7 +101,7 @@ class NabooPayGateway(BasePaymentGateway):
                 else f"{settings.FRONTEND_URL}/subscriptions?payment={payment.id}"
             ),
             "error_url": (
-                f"{settings.FRONTEND_URL}/checkout-payment?payment={payment.id}&status=failed"
+                f"{settings.FRONTEND_URL}/{'checkout-payment' if order else 'subscriptions'}?payment={payment.id}&status=failed"
             ),
         }
 
@@ -124,10 +125,13 @@ class NabooPayGateway(BasePaymentGateway):
             raise PaymentGatewayError("Réponse NabooPay invalide.") from exc
 
         if response.is_error:
-            message = data.get("error", "NabooPay a refusé la transaction.")
-            raise PaymentGatewayError(str(message))
+            raise PaymentGatewayError("Le fournisseur a refusé la transaction. Réessayez plus tard.")
+        if not isinstance(data, dict):
+            raise PaymentGatewayError("Réponse du fournisseur invalide.")
 
         transaction = data.get("data", data)
+        if not isinstance(transaction, dict):
+            raise PaymentGatewayError("Réponse du fournisseur invalide.")
         provider_ref = transaction.get("order_id") or transaction.get("id")
         checkout_url = (
             transaction.get("checkout_url")
@@ -138,6 +142,9 @@ class NabooPayGateway(BasePaymentGateway):
             raise PaymentGatewayError(
                 "NabooPay n'a pas renvoyé de référence et de lien de paiement."
             )
+        parsed_checkout_url = urlparse(str(checkout_url))
+        if parsed_checkout_url.scheme != "https" or not parsed_checkout_url.netloc:
+            raise PaymentGatewayError("NabooPay a renvoyé un lien de paiement non sécurisé.")
 
         payment.provider_ref = str(provider_ref)
         payment.checkout_url = str(checkout_url)

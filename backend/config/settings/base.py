@@ -109,9 +109,22 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+CELERY_BEAT_SCHEDULE = {
+    "maintain-subscriptions": {
+        "task": "apps.monetization.tasks.maintain_subscriptions",
+        "schedule": 3600.0,
+    },
+    "expire-pending-payments": {
+        "task": "apps.payments.tasks.expire_pending_payments",
+        "schedule": 300.0,
+    },
+}
 
 # --- Stockage fichiers (MinIO, compatible API S3) ---
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+STORAGES = {
+    "default": {"BACKEND": "storages.backends.s3.S3Storage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
 AWS_ACCESS_KEY_ID = config("MINIO_ACCESS_KEY", default="minioadmin")
 AWS_SECRET_ACCESS_KEY = config("MINIO_SECRET_KEY", default="minioadmin")
 AWS_STORAGE_BUCKET_NAME = config("MINIO_BUCKET", default="sunu-mall")
@@ -141,9 +154,20 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.ScopedRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "apps.auth.throttles.AtomicScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
+        "anon": "120/minute",
+        "user": "600/minute",
+        "auth_login": "10/minute",
+        "auth_refresh": "60/minute",
+        "auth_register": "5/hour",
+        "auth_verify": "20/hour",
+        "auth_resend": "3/hour",
+        "auth_guest_checkout": "10/hour",
+        "auth_set_password": "10/hour",
         # Chaque appel coûte réellement de l'argent (API Anthropic) : limite
         # volontairement basse pour éviter qu'un usage abusif ne fasse
         # exploser la facture. Ne s'applique qu'aux vues qui déclarent
@@ -218,6 +242,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email Configuration
 EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_TIMEOUT = 5
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
 EMAIL_PORT = config("EMAIL_PORT", default=1025, cast=int)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
@@ -241,3 +266,10 @@ FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3004")
 # Tant qu'aucune clé n'est fournie, les endpoints IA répondent une erreur
 # claire (503) plutôt que de planter — voir apps/ia/services.py.
 ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default=",".join(CORS_ALLOWED_ORIGINS), cast=Csv())
+
+AUTH_REFRESH_COOKIE_SAMESITE = config("AUTH_REFRESH_COOKIE_SAMESITE", default="Lax")
+CSRF_COOKIE_SAMESITE = AUTH_REFRESH_COOKIE_SAMESITE

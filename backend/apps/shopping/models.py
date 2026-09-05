@@ -2,6 +2,7 @@
 Listes de souhaits et paniers.
 """
 import uuid
+from django.core.exceptions import ValidationError
 from django.db import models
 from apps.users.models import User
 from apps.catalog.models import Product, ProductVariant
@@ -16,8 +17,6 @@ class Wishlist(models.Model):
     def add_product(self, product):
         WishlistItem.objects.get_or_create(wishlist=self, product=product)
 
-    def remove_product(self, product):
-        WishlistItem.objects.filter(wishlist=self, product=product).delete()
 
     def __str__(self):
         return f"Wishlist for {self.user.email}"
@@ -47,6 +46,8 @@ class Cart(models.Model):
         return sum(item.subtotal() for item in self.items.all())
 
     def add_item(self, variant, qty=1):
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValidationError("La quantité doit être un entier positif.")
         item, created = CartItem.objects.get_or_create(cart=self, product_variant=variant)
         if not created:
             item.quantity += qty
@@ -70,6 +71,7 @@ class CartItem(models.Model):
 
     class Meta:
         unique_together = ['cart', 'product_variant']
+        constraints = [models.CheckConstraint(condition=models.Q(quantity__gt=0), name='cart_item_positive_quantity')]
         ordering = ['-added_at']
 
     def subtotal(self):

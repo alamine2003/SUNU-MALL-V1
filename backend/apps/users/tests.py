@@ -169,6 +169,7 @@ class RBACAPITests(TestCase):
         self.client.force_authenticate(user=self.merchant_user)
 
         self.assertEqual(self.client.get(self.user_list_url).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.get(self.user_list_url).data['count'], 1)
         self.assert_admin_only_actions_forbidden(self.merchant_user)
 
     def test_client_access_to_protected_endpoints(self):
@@ -176,6 +177,7 @@ class RBACAPITests(TestCase):
         self.client.force_authenticate(user=self.client_user)
 
         self.assertEqual(self.client.get(self.user_list_url).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.get(self.user_list_url).data['count'], 1)
         self.assert_admin_only_actions_forbidden(self.client_user)
 
     def test_driver_access_to_protected_endpoints(self):
@@ -183,7 +185,13 @@ class RBACAPITests(TestCase):
         self.client.force_authenticate(user=self.driver_user)
 
         self.assertEqual(self.client.get(self.user_list_url).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.get(self.user_list_url).data['count'], 1)
         self.assert_admin_only_actions_forbidden(self.driver_user)
+
+    def test_non_admin_cannot_retrieve_another_user(self):
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get(reverse('user-detail', args=[self.merchant_user.id]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_unauthenticated_user_cannot_access_protected_endpoints(self):
         """Vérifie qu'un utilisateur non authentifié ne peut pas accéder aux endpoints protégés."""
@@ -207,3 +215,16 @@ class RBACAPITests(TestCase):
         self.assertIn('roles', response.data)
         self.assertIn('permissions', response.data)
         self.assertIn('admin', response.data['roles'])
+
+
+class AdminStatisticsPermissionsTests(TestCase):
+    setUp = RBACModelTests.setUp
+
+    def test_only_admin_can_read_global_statistics(self):
+        for user in (self.client_user, self.merchant_user, self.driver_user):
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get("/api/users/admin/dashboard/stats/").status_code, 403)
+        self.client.force_authenticate(self.admin_user)
+        response = self.client.get("/api/users/admin/dashboard/stats/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("users", response.data)

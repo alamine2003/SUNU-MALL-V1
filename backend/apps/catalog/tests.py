@@ -26,7 +26,7 @@ TINY_PNG = (
 _TMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="sunu-mall-test-media-")
 
 
-@override_settings(DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage", MEDIA_ROOT=_TMP_MEDIA_ROOT)
+@override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.InMemoryStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}}, MEDIA_ROOT=_TMP_MEDIA_ROOT)
 class CatalogOwnershipTests(TestCase):
     @classmethod
     def tearDownClass(cls):
@@ -40,7 +40,7 @@ class CatalogOwnershipTests(TestCase):
         self.owner = self._make_merchant("owner@example.com")
         self.other = self._make_merchant("other@example.com")
 
-        self.store = Store.objects.create(owner=self.owner, name="Ma boutique")
+        self.store = Store.objects.create(owner=self.owner, name="Ma boutique", status=Store.Status.ACTIVE)
         self.product = Product.objects.create(store=self.store, name="Produit", base_price=1000)
 
     def _make_merchant(self, email):
@@ -113,3 +113,74 @@ class CatalogOwnershipTests(TestCase):
         self.assertTrue(hasattr(variant, "inventory"))
         self.assertEqual(variant.inventory.quantity, 42)
         self.assertTrue(variant.is_available())
+
+    def test_upload_rejects_a_non_image_file(self):
+        self.client.force_authenticate(self.owner)
+        invalid = SimpleUploadedFile("payload.txt", b"not an image", content_type="image/png")
+        response = self.client.post(
+            f"/api/catalog/products/{self.product.id}/images/",
+            {"image": invalid}, format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.product.images.count(), 0)
+
+
+class CatalogRegressionTests(TestCase):
+    setUp = CatalogOwnershipTests.setUp
+    _make_merchant = CatalogOwnershipTests._make_merchant
+
+    def test_merchant_cannot_activate_suspended_store(self):
+        self.store.status = Store.Status.SUSPENDED
+        self.store.save(update_fields=["status"])
+        self.client.force_authenticate(self.owner)
+        response = self.client.patch(f"/api/catalog/stores/{self.store.pk}/", {"status": "active"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.status, Store.Status.SUSPENDED)
+        self.assertEqual(self.client.post(f"/api/catalog/stores/{self.store.pk}/approve/").status_code, 403)
+
+    def test_merchant_cannot_create_already_approved_store(self):
+        self.client.force_authenticate(self.owner)
+        response = self.client.post("/api/catalog/stores/", {"name": "Sans contrôle", "status": "active"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Store.objects.filter(name="Sans contrôle").exists())
+
+    def test_admin_can_still_approve_store(self):
+        admin = self._make_merchant("admin-catalog@example.com")
+        role, _ = Role.objects.get_or_create(name=Role.RoleName.ADMIN)
+        UserRole.objects.create(user=admin, role=role)
+        self.client.force_authenticate(admin)
+        response = self.client.post(f"/api/catalog/stores/{self.store.pk}/approve/")
+        self.assertEqual(response.status_code, 200)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.status, Store.Status.ACTIVE)
+
+    def test_product_and_variant_cannot_move_to_another_merchant(self):
+        other_store = Store.objects.create(owner=self.other, name="Autre boutique")
+        other_product = Product.objects.create(store=other_store, name="Autre produit", base_price=1000)
+        variant = ProductVariant.objects.create(product=self.product, sku="IMMUTABLE", price=1000)
+        self.client.force_authenticate(self.owner)
+        response = self.client.patch(f"/api/catalog/products/{self.product.pk}/", {"store": str(other_store.pk)}, format="json")
+        self.assertEqual(response.status_code, 400)
+        response = self.client.patch(f"/api/catalog/variants/{variant.pk}/", {"product": str(other_product.pk)}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.product.refresh_from_db()
+        variant.refresh_from_db()
+        self.assertEqual(self.product.store_id, self.store.pk)
+        self.assertEqual(variant.product_id, self.product.pk)
+
+    def test_delete_archives_product_and_preserves_sold_variant(self):
+        from apps.catalog.models import Inventory
+        from apps.orders.models import Order, OrderItem
+        variant = ProductVariant.objects.create(product=self.product, sku="ARCHIVE", price=1000)
+        Inventory.objects.create(variant=variant, quantity=4)
+        order = Order.objects.create(customer=self.other, store=self.store, total_amount=1000, status="paid")
+        item = OrderItem.objects.create(order=order, product_variant=variant, quantity=1, unit_price=1000)
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.client.delete(f"/api/catalog/products/{self.product.pk}/").status_code, 204)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.status, Product.Status.INACTIVE)
+        self.assertTrue(OrderItem.objects.filter(pk=item.pk).exists())
+        self.assertTrue(Inventory.objects.filter(variant=variant).exists())
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(f"/api/catalog/products/{self.product.pk}/").status_code, 404)

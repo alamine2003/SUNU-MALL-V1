@@ -2,12 +2,17 @@
 Paiements, commissions, transactions et remboursements.
 """
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
 from apps.orders.models import Order
 from apps.monetization.models import Invoice, Subscription
+
+
+def payment_expiry():
+    return timezone.now() + timedelta(minutes=30)
 
 
 class PaymentService:
@@ -63,11 +68,12 @@ class Payment(models.Model):
     # qu'une seule relation polymorphe, plus simple à requêter/valider.
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name='payment', null=True, blank=True)
     subscription = models.OneToOneField(
-        Subscription, on_delete=models.CASCADE, related_name='payment', null=True, blank=True
+        Subscription, on_delete=models.PROTECT, related_name='payment', null=True, blank=True
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=20, choices=Method.choices)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
+    expires_at = models.DateTimeField(default=payment_expiry, db_index=True)
     provider_ref = models.CharField(max_length=255, blank=True, db_index=True)
     checkout_url = models.URLField(blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
@@ -78,12 +84,17 @@ class Payment(models.Model):
         ordering = ['-created_at']
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(order__isnull=False, subscription__isnull=True)
                     | models.Q(order__isnull=True, subscription__isnull=False)
                 ),
                 name='payment_targets_order_xor_subscription',
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["provider_ref"],
+                condition=~models.Q(provider_ref=""),
+                name="payment_provider_ref_unique_when_present",
+            ),
         ]
 
     def mark_succeeded(self):
@@ -109,7 +120,13 @@ class Payment(models.Model):
             return True
 
     def _activate_subscription(self):
-        subscription = self.subscription
+        subscription = Subscription.objects.select_for_update().get(pk=self.subscription_id)
+        if subscription.status in {Subscription.Status.CANCELLED, Subscription.Status.EXPIRED}:
+            Refund.objects.get_or_create(
+                payment=self,
+                defaults={"amount": self.amount, "reason": "Paiement reçu après annulation de l'abonnement."},
+            )
+            return
         subscription.status = Subscription.Status.ACTIVE
         subscription.save(update_fields=["status"])
         today = timezone.now().date()
@@ -146,7 +163,7 @@ class Transaction(models.Model):
         REFUND = 'refund', 'Refund'
 
     id = models.AutoField(primary_key=True)
-    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='transactions')
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name='transactions')
     type = models.CharField(max_length=50, choices=Type.choices)
     payee_type = models.CharField(max_length=100)
     # Null pour la part plateforme (COMMISSION) : ce n'est pas un utilisateur,
@@ -198,7 +215,7 @@ class Refund(models.Model):
         COMPLETED = 'completed', 'Completed'
 
     id = models.AutoField(primary_key=True)
-    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='refunds')
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name='refunds')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     reason = models.TextField()
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDING)
@@ -227,8 +244,8 @@ class Refund(models.Model):
             payment = Payment.objects.select_for_update().get(pk=refund.payment_id)
             if payment.status != Payment.Status.SUCCESS:
                 raise ValueError("Seul un paiement confirmé peut être remboursé.")
-            if refund.amount <= 0 or refund.amount > payment.amount:
-                raise ValueError("Le montant du remboursement est invalide.")
+            if refund.amount != payment.amount:
+                raise ValueError("Seul le remboursement intégral est actuellement supporté.")
 
             refund.status = self.Status.COMPLETED
             refund.refunded_at = timezone.now()

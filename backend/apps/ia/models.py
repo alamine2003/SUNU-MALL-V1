@@ -52,8 +52,10 @@ class RecommendationLog(models.Model):
         from apps.orders.models import Order, OrderItem
 
         bought_product_ids = list(
-            OrderItem.objects.filter(order__customer=user)
-            .exclude(order__status=Order.Status.CANCELLED)
+            OrderItem.objects.filter(
+                order__customer=user,
+                order__status__in=Order.SALES_STATUSES,
+            )
             .values_list("product_variant__product_id", flat=True)
             .distinct()
         )
@@ -61,12 +63,17 @@ class RecommendationLog(models.Model):
         recommended_ids = []
         if bought_product_ids:
             order_ids = (
-                OrderItem.objects.filter(product_variant__product_id__in=bought_product_ids)
-                .exclude(order__status=Order.Status.CANCELLED)
+                OrderItem.objects.filter(
+                    product_variant__product_id__in=bought_product_ids,
+                    order__status__in=Order.SALES_STATUSES,
+                )
                 .values_list("order_id", flat=True)
             )
             recommended_ids = list(
-                OrderItem.objects.filter(order_id__in=order_ids)
+                OrderItem.objects.filter(
+                    order_id__in=order_ids,
+                    order__status__in=Order.SALES_STATUSES,
+                )
                 .exclude(product_variant__product_id__in=bought_product_ids)
                 .values("product_variant__product_id")
                 .annotate(freq=dj_models.Count("id"))

@@ -17,6 +17,8 @@ from django.utils.encoding import force_bytes
 
 class AuthTests(TestCase):
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
         """
         Configuration initiale des tests.
         """
@@ -25,6 +27,7 @@ class AuthTests(TestCase):
         self.login_url = reverse('auth_login')
         self.verify_email_url = reverse('auth_verify_email')
         self.resend_verification_url = reverse('auth_resend_verification')
+        self.guest_checkout_url = reverse('auth_guest_checkout')
         self.token_url = reverse('token_obtain_pair')
         self.token_refresh_url = reverse('token_refresh')
         self.token_verify_url = reverse('token_verify')
@@ -93,6 +96,17 @@ class AuthTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', response.data)
+
+    def test_register_cannot_assign_an_admin_role(self):
+        response = self.client.post(self.register_url, {
+            'email': 'attacker@example.com',
+            'password': 'testpassword123',
+            'first_name': 'Attacker',
+            'role_name': 'admin',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(email='attacker@example.com').exists())
 
     def test_login_user_unverified(self):
         """
@@ -429,8 +443,26 @@ class AuthTests(TestCase):
         data = {'email': 'test@example.com'}
         response = self.client.post(self.resend_verification_url, data, format='json')
         
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('message', response.data)
+
+    def test_guest_checkout_cannot_take_over_an_existing_guest_account(self):
+        guest = User.objects.create_user(
+            username='guest@example.com', email='guest@example.com',
+            first_name='Original',
+        )
+        guest.set_unusable_password()
+        guest.save(update_fields=['password'])
+
+        response = self.client.post(self.guest_checkout_url, {
+            'email': guest.email,
+            'first_name': 'Attacker',
+            'phone': '+221770000000',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        guest.refresh_from_db()
+        self.assertEqual(guest.first_name, 'Original')
 
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_send_verification_email_helper(self):
@@ -448,3 +480,54 @@ class AuthTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "Vérifiez votre email - SUNU MALL")
         self.assertIn('/verify-email?uid=', mail.outbox[0].body)
+
+
+class EmailCaseRegressionTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.client = APIClient()
+
+    def test_registration_normalizes_email_and_allows_mixed_case_login(self):
+        response = self.client.post(reverse("auth_register"), {
+            "email": "Alice@Example.com", "password": "testpassword123", "first_name": "Alice",
+        }, format="json")
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email="alice@example.com")
+        user.is_verified = True
+        user.save(update_fields=["is_verified"])
+        response = self.client.post(reverse("auth_login"), {
+            "email": "ALICE@example.com", "password": "testpassword123",
+        }, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(response.data["user"]["id"]), str(user.pk))
+
+    def test_legacy_email_works_for_both_login_endpoints_and_resend(self):
+        user = User.objects.create_user(username="legacy", email="Alice@example.com", password="testpassword123")
+        with patch("apps.auth.views.send_verification_email") as send:
+            response = self.client.post(reverse("auth_resend_verification"), {"email": "alice@example.com"})
+        self.assertEqual(response.status_code, 200)
+        send.assert_called_once_with(user)
+        user.is_verified = True
+        user.save(update_fields=["is_verified"])
+        for route in ("auth_login", "token_obtain_pair"):
+            response = self.client.post(reverse(route), {"email": "alice@example.com", "password": "testpassword123"})
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertIn("access", response.data)
+
+    def test_case_variants_cannot_register_or_create_a_guest_over_existing_email(self):
+        User.objects.create_user(username="legacy", email="Alice@example.com", password="testpassword123")
+        for route in ("auth_register", "auth_guest_checkout"):
+            response = self.client.post(reverse(route), {
+                "email": "alice@example.com", "password": "testpassword123", "first_name": "Alice", "phone": "771234567",
+            }, format="json")
+            self.assertEqual(response.status_code, 400)
+        self.assertEqual(User.objects.filter(email__iexact="alice@example.com").count(), 1)
+
+    def test_legacy_case_collision_never_selects_an_arbitrary_account(self):
+        from apps.auth.emails import utilisateur_par_email
+        first = User.objects.create_user(username="first", email="Alice@example.com")
+        second = User.objects.create_user(username="second", email="alice@example.com")
+        self.assertEqual(utilisateur_par_email("Alice@example.com"), first)
+        self.assertEqual(utilisateur_par_email("alice@example.com"), second)
+        self.assertIsNone(utilisateur_par_email("ALICE@example.com"))

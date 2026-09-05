@@ -34,7 +34,7 @@ class AIServiceError(Exception):
 def _client() -> anthropic.Anthropic:
     if not settings.ANTHROPIC_API_KEY:
         raise AIServiceError("Le service IA n'est pas configuré sur cet environnement.")
-    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=5.0, max_retries=0)
 
 
 def generate_product_description(name: str, category_name: str | None, price: str, store_name: str) -> str:
@@ -57,7 +57,7 @@ def generate_product_description(name: str, category_name: str | None, price: st
             messages=[{"role": "user", "content": prompt}],
         )
     except anthropic.APIError as exc:
-        logger.exception("Échec génération de description produit (Anthropic)")
+        logger.warning("Échec génération de description produit : %s", type(exc).__name__)
         raise AIServiceError(GENERIC_ERROR_MESSAGE) from exc
     return message.content[0].text.strip()
 
@@ -119,9 +119,19 @@ MAX_TOOL_ROUNDS = 3
 def _search_catalog(query: str = "", max_price: float | None = None, category: str | None = None, limit: int = 6):
     """Interroge le vrai catalogue — jamais le LLM lui-même — pour ancrer ses réponses sur des produits réels."""
     from django.db.models import Q
-    from apps.catalog.models import Product
+    from apps.catalog.queries import visible_products, product_details
 
-    qs = Product.objects.filter(status=Product.Status.ACTIVE)
+    query = str(query or "")[:200]
+    category = str(category or "")[:100]
+    if max_price is not None:
+        from decimal import Decimal, InvalidOperation
+        try:
+            max_price = Decimal(str(max_price))
+        except (InvalidOperation, ValueError):
+            return []
+        if not max_price.is_finite() or max_price < 0:
+            return []
+    qs = product_details(visible_products())
     for word in query.split():
         qs = qs.filter(Q(name__icontains=word) | Q(description__icontains=word) | Q(category__name__icontains=word))
     if max_price is not None:
@@ -177,7 +187,7 @@ def chat_reply(history: list[dict], user_message: str) -> tuple[str, list]:
                 model=MODEL, max_tokens=500, system=SUPPORT_SYSTEM_PROMPT, messages=messages
             )
     except anthropic.APIError as exc:
-        logger.exception("Échec de réponse de l'assistant client (Anthropic)")
+        logger.warning("Échec de réponse de l'assistant client : %s", type(exc).__name__)
         raise AIServiceError(GENERIC_ERROR_MESSAGE) from exc
 
     text = next((block.text for block in response.content if block.type == "text"), "")

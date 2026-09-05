@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import models
 from django.db import transaction
 from django.http import JsonResponse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, permissions, status
@@ -15,53 +16,11 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Payment, Refund
+from .services import complete_payment, fail_payment
 from .serializers import PaymentSerializer, RefundSerializer
 from .gateways import PaymentGatewayError, get_gateway
-from apps.monetization.models import Notification
-from apps.orders.models import Order
 from apps.users.models import Role
 from apps.users.permissions import IsAdmin
-
-
-def _complete_order_payment(payment):
-    """Applique une confirmation une seule fois et déclenche la livraison."""
-    changed = payment.mark_succeeded()
-    if not changed or not payment.order_id:
-        return payment
-
-    order = payment.order
-    if order.status != Order.Status.PAID:
-        order.change_status(Order.Status.PAID)
-        _send_order_confirmation(order)
-        delivery = getattr(order, "delivery", None)
-        if delivery:
-            delivery.auto_assign()
-    return payment
-
-
-def _send_order_confirmation(order):
-    """
-    Confirmation envoyée au client juste après le paiement réussi. Email
-    réellement délivré (SMTP déjà configuré) ; le canal SMS existe déjà
-    dans le modèle Notification pour quand un fournisseur sera branché,
-    mais n'envoie rien de réel pour l'instant (voir Notification._send_sms).
-    """
-    subject = f"Commande confirmée — {order.store.name}"
-    message = (
-        f"Bonjour {order.customer.first_name or order.customer.email},\n\n"
-        f"Votre commande n°{str(order.id)[:8]} chez {order.store.name} a été payée avec succès.\n"
-        f"Montant total : {order.total_amount} FCFA.\n\n"
-        "Vous pouvez suivre sa livraison depuis votre espace Sunu Mall.\n\n"
-        "Merci de votre confiance !"
-    )
-    notification = Notification.objects.create(
-        user=order.customer,
-        channel=Notification.Channel.EMAIL,
-        subject=subject,
-        message=message,
-        metadata={"order_id": str(order.id)},
-    )
-    notification.send()
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -96,17 +55,23 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
             raise PermissionDenied(message)
 
     @action(detail=True, methods=["post"], url_path="initiate")
+    @transaction.atomic
     def initiate(self, request, pk=None):
         """Démarre le paiement auprès du fournisseur (ou de la simulation sandbox)."""
         payment = self.get_object()
         self._ensure_customer(payment)
+        payment = Payment.objects.select_for_update().get(pk=payment.pk)
+        if payment.expires_at <= timezone.now():
+            fail_payment(payment)
+        if payment.order_id and payment.order.status == 'cancelled':
+            return Response({'error': 'La commande a été annulée.'}, status=409)
         if payment.status != Payment.Status.PENDING:
             return Response(
                 {"error": "Ce paiement n'est plus en attente."},
                 status=status.HTTP_409_CONFLICT,
             )
-        gateway = get_gateway(payment.method)
         try:
+            gateway = get_gateway(payment.method)
             result = gateway.initiate(payment)
         except PaymentGatewayError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
@@ -134,9 +99,9 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if outcome == "success":
-            _complete_order_payment(payment)
+            complete_payment(payment)
         else:
-            payment.mark_failed()
+            fail_payment(payment)
         return Response(PaymentSerializer(payment).data)
 
 
@@ -156,14 +121,17 @@ class RefundViewSet(viewsets.ReadOnlyModelViewSet):
         qs = Refund.objects.select_related("payment__order__store", "payment__order__customer")
         if user.has_role(Role.RoleName.ADMIN):
             return qs
-        return qs.filter(payment__order__customer=user)
+        return qs.filter(models.Q(payment__order__customer=user) | models.Q(payment__subscription__subscriber_id=user.pk))
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated, IsAdmin])
     def process(self, request, pk=None):
         refund = self.get_object()
         if refund.status == Refund.Status.COMPLETED:
             return Response({"error": "Ce remboursement a déjà été traité."}, status=status.HTTP_400_BAD_REQUEST)
-        refund.process()
+        try:
+            refund.process()
+        except ValueError:
+            return Response({"error": "Ce remboursement ne peut pas être traité dans son état actuel."}, status=400)
         return Response(RefundSerializer(refund).data)
 
 
@@ -188,6 +156,8 @@ class NabooPayWebhookView(APIView):
         except (TypeError, ValueError):
             return JsonResponse({"error": "Payload JSON invalide."}, status=400)
 
+        if not isinstance(payload, dict):
+            return JsonResponse({'error': 'Payload JSON invalide.'}, status=400)
         provider_ref = str(payload.get("order_id", ""))
         payment_status = payload.get("transaction_status")
         if not provider_ref or payment_status not in {"completed", "failed", "cancelled"}:
@@ -212,8 +182,8 @@ class NabooPayWebhookView(APIView):
         with transaction.atomic():
             payment = Payment.objects.select_for_update().get(pk=payment.pk)
             if payment_status == "completed":
-                _complete_order_payment(payment)
+                complete_payment(payment)
             else:
-                payment.mark_failed()
+                fail_payment(payment)
 
         return JsonResponse({"status": "received"}, status=200)

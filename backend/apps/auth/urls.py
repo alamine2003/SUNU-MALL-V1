@@ -14,7 +14,14 @@ from .views import (
     SetPasswordView,
 )
 
+from .browser import BrowserLoginView, BrowserGuestView, BrowserCsrfView, BrowserRefreshView, BrowserLogoutView
+
 urlpatterns = [
+    path("browser/csrf/", BrowserCsrfView.as_view()),
+    path("browser/login/", BrowserLoginView.as_view()),
+    path("browser/guest-checkout/", BrowserGuestView.as_view()),
+    path("browser/refresh/", BrowserRefreshView.as_view()),
+    path("browser/logout/", BrowserLogoutView.as_view()),
     path('register/', RegisterView.as_view(), name='auth_register'),
     path('login/', LoginView.as_view(), name='auth_login'),
     path('verify-email/', VerifyEmailView.as_view(), name='auth_verify_email'),

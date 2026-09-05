@@ -15,12 +15,17 @@ class GenerateDescriptionSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
     store = serializers.UUIDField()
 
+    def validate_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Le prix doit être strictement positif.")
+        return value
+
 
 class ChatMessageSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=["user", "assistant"])
-    content = serializers.CharField()
+    content = serializers.CharField(max_length=2000)
 
 
 class ChatSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=2000)
-    history = ChatMessageSerializer(many=True, required=False, default=list)
+    history = ChatMessageSerializer(many=True, required=False, default=list, max_length=20)

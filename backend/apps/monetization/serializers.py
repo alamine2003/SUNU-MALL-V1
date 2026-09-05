@@ -21,6 +21,21 @@ class SponsoredProductSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def validate(self, attrs):
+        daily_budget = attrs.get("daily_budget")
+        starts_at = attrs.get("starts_at")
+        ends_at = attrs.get("ends_at")
+        if daily_budget is not None and daily_budget <= 0:
+            raise serializers.ValidationError({"daily_budget": "Le budget quotidien doit être positif."})
+        if starts_at and ends_at and starts_at > ends_at:
+            raise serializers.ValidationError({"ends_at": "La date de fin doit suivre la date de début."})
+        if self.instance:
+            if "product" in attrs and attrs["product"] != self.instance.product:
+                raise serializers.ValidationError({"product": "Le produit d'une campagne ne peut pas être changé."})
+            if "store" in attrs and attrs["store"] != self.instance.store:
+                raise serializers.ValidationError({"store": "La boutique d'une campagne ne peut pas être changée."})
+        return attrs
+
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
