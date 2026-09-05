@@ -107,4 +107,4 @@ jobs:
           test -n "$RAILWAY_PROJECT_ID" || { echo "RAILWAY_PROJECT_ID manquant"; exit 1; }
           test -n "$RAILWAY_SERVICE_ID" || { echo "RAILWAY_SERVICE_ID manquant"; exit 1; }
           test -n "$RAILWAY_ENVIRONMENT_ID" || { echo "RAILWAY_ENVIRONMENT_ID manquant"; exit 1; }
-          railway up backend --path-as-root --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID"
+          railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID"
