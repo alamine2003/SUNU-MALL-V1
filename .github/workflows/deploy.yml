@@ -14,8 +14,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy-frontend:
+  resolve_backend_url:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.backend.outputs.api_url }}
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - run: npm install --global @railway/cli
+      - name: Resolve Railway public API URL
+        id: backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          test -n "$RAILWAY_TOKEN" || { echo "RAILWAY_TOKEN manquant"; exit 1; }
+          backend_domain="$(railway variable list --json --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID" | jq -er '.RAILWAY_PUBLIC_DOMAIN | select(type == "string" and length > 0)')"
+          case "$backend_domain" in
+            https://*) backend_origin="${backend_domain%/}" ;;
+            *) backend_origin="https://${backend_domain%/}" ;;
+          esac
+          echo "api_url=${backend_origin}/api" >> "$GITHUB_OUTPUT"
+
+  deploy-frontend:
+    needs: resolve_backend_url
+    if: ${{ success() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,7 +63,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: ${{ needs.resolve_backend_url.outputs.api_url }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: Enable direct navigation to SPA routes on GitHub Pages
@@ -84,7 +111,7 @@ jobs:
 
   deploy-railway:
     needs: publish-backend
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ success() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -108,3 +135,43 @@ jobs:
           test -n "$RAILWAY_SERVICE_ID" || { echo "RAILWAY_SERVICE_ID manquant"; exit 1; }
           test -n "$RAILWAY_ENVIRONMENT_ID" || { echo "RAILWAY_ENVIRONMENT_ID manquant"; exit 1; }
           railway up --ci --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT_ID"
+
+  smoke-test:
+    needs: [resolve_backend_url, deploy-frontend, deploy-railway]
+    if: ${{ success() && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      API_URL: ${{ needs.resolve_backend_url.outputs.api_url }}
+      FRONTEND_ORIGIN: https://${{ github.event.repository.owner.login }}.github.io
+      FRONTEND_URL: https://${{ github.event.repository.owner.login }}.github.io/${{ github.event.repository.name }}/
+    steps:
+      - name: Check deployed frontend
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$FRONTEND_URL" -o "$RUNNER_TEMP/frontend.html"
+          grep -Fq '<title>Sunu Mall</title>' "$RUNNER_TEMP/frontend.html"
+
+      - name: Check public catalog API and CORS
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$API_URL/catalog/products/" -o "$RUNNER_TEMP/catalog.json"
+          jq -e 'type == "object" and has("results")' "$RUNNER_TEMP/catalog.json" >/dev/null
+          curl --fail --silent --show-error -X OPTIONS \
+            -H "Origin: $FRONTEND_ORIGIN" \
+            -H 'Access-Control-Request-Method: GET' \
+            -D "$RUNNER_TEMP/cors.headers" \
+            -o /dev/null \
+            "$API_URL/catalog/products/"
+          tr -d '\r' < "$RUNNER_TEMP/cors.headers" | grep -Fqi "access-control-allow-origin: $FRONTEND_ORIGIN"
+
+      - name: Check browser session cookie policy
+        run: |
+          curl --fail --silent --show-error \
+            -H "Origin: $FRONTEND_ORIGIN" \
+            -D "$RUNNER_TEMP/csrf.headers" \
+            "$API_URL/auth/browser/csrf/" \
+            -o "$RUNNER_TEMP/csrf.json"
+          jq -e '.csrfToken | type == "string" and length > 10' "$RUNNER_TEMP/csrf.json" >/dev/null
+          tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie: csrftoken='
+          tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie:.*[; ]Secure([; ]|$)'
+          tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie:.*SameSite=None([; ]|$)'

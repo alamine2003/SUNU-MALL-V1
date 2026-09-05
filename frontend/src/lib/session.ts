@@ -1,5 +1,5 @@
 /** Transport des seules routes de session web, protégé par CSRF. */
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000/api").replace(/\/+$/, "");
 
 export async function browserSessionRequest(path: string, body?: unknown) {
   const csrf = await fetch(`${API_BASE_URL}/auth/browser/csrf/`, { credentials: "include" });
