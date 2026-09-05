@@ -25,10 +25,10 @@ export async function listSubscriptions() {
 }
 
 /**
- * Crée l'abonnement (en attente) et son paiement associé. Le paiement est
+ * Crée ou reprend l'abonnement en attente et son paiement associé. Le paiement est
  * `null` pour une offre gratuite, déjà activée directement côté serveur.
  */
-export function subscribe(planId: string, paymentMethod: "wave" | "orange_money" | "card" = "wave") {
+export function subscribe(planId: string, paymentMethod: "wave" | "orange_money" = "wave") {
   return apiPost<{ subscription: Subscription; payment: Payment | null }>(
     `/monetization/subscription-plans/${planId}/subscribe/`,
     { payment_method: paymentMethod },

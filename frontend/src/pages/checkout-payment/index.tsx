@@ -15,7 +15,7 @@ const METHODS = PAYMENT_METHODS;
 
 export default function CheckoutPaymentPage() {
   const navigate = useNavigate();
-  const { storeId, address, items, deliveryMethod, deliveryFee, paymentMethod, setPaymentMethod, reset } = useCheckoutStore();
+  const { checkoutKey, storeId, address, items, deliveryMethod, deliveryFee, paymentMethod, setPaymentMethod, reset } = useCheckoutStore();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -57,6 +57,7 @@ export default function CheckoutPaymentPage() {
     setError(null);
     try {
       const order = await ordersApi.checkout({
+        checkout_key: checkoutKey ?? undefined,
         store: storeId!,
         address: address!.id,
         delivery_type: deliveryMethod,
@@ -160,9 +161,7 @@ export default function CheckoutPaymentPage() {
                 <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-accent text-orange">
                   {method.image ? (
                     <img src={method.image} alt={method.label} className="h-full w-full object-cover" />
-                  ) : (
-                    method.icon && <method.icon className="h-5 w-5" />
-                  )}
+                  ) : null}
                 </span>
                 <p className="font-semibold text-ink">{method.label}</p>
               </div>

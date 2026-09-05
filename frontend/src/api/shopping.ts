@@ -1,34 +1,50 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { Cart, Wishlist } from "@/types";
+import { useAuthStore } from "@/store/authStore";
+import { useShoppingStore } from "@/store/shoppingStore";
+
+function updateCount<T extends Cart | Wishlist>(request: Promise<T>, kind: "cart" | "wishlist") {
+  const userId = useAuthStore.getState().user?.id;
+  return request.then((data) => {
+    if (useAuthStore.getState().user?.id === userId) {
+      if (kind === "cart") {
+        useShoppingStore.setState({ cartCount: (data as Cart).items.reduce((total, item) => total + item.quantity, 0) });
+      } else {
+        useShoppingStore.setState({ favCount: data.items.length });
+      }
+    }
+    return data;
+  });
+}
 
 export function getCart() {
-  return apiGet<Cart>("/shopping/cart/");
+  return updateCount(apiGet<Cart>("/shopping/cart/"), "cart");
 }
 
 export function addCartItem(productVariant: string, quantity = 1) {
-  return apiPost<Cart>("/shopping/cart/items/", { product_variant: productVariant, quantity });
+  return updateCount(apiPost<Cart>("/shopping/cart/items/", { product_variant: productVariant, quantity }), "cart");
 }
 
 export function updateCartItem(itemId: string, quantity: number) {
-  return apiPatch<Cart>(`/shopping/cart/items/${itemId}/`, { quantity });
+  return updateCount(apiPatch<Cart>(`/shopping/cart/items/${itemId}/`, { quantity }), "cart");
 }
 
 export function removeCartItem(itemId: string) {
-  return apiDelete<Cart>(`/shopping/cart/items/${itemId}/`);
+  return updateCount(apiDelete<Cart>(`/shopping/cart/items/${itemId}/`), "cart");
 }
 
 export function clearCart() {
-  return apiPost<Cart>("/shopping/cart/clear/");
+  return updateCount(apiPost<Cart>("/shopping/cart/clear/"), "cart");
 }
 
 export function getWishlist() {
-  return apiGet<Wishlist>("/shopping/wishlist/");
+  return updateCount(apiGet<Wishlist>("/shopping/wishlist/"), "wishlist");
 }
 
 export function addWishlistItem(productId: string) {
-  return apiPost<Wishlist>("/shopping/wishlist/items/", { product: productId });
+  return updateCount(apiPost<Wishlist>("/shopping/wishlist/items/", { product: productId }), "wishlist");
 }
 
 export function removeWishlistItem(productId: string) {
-  return apiDelete<Wishlist>(`/shopping/wishlist/items/${productId}/`);
+  return updateCount(apiDelete<Wishlist>(`/shopping/wishlist/items/${productId}/`), "wishlist");
 }

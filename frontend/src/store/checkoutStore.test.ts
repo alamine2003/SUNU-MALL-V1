@@ -69,3 +69,26 @@ describe("useCheckoutStore", () => {
     expect(state.paymentMethod).toBe("wave");
   });
 });
+
+describe("tentative de commande", () => {
+  beforeEach(() => useCheckoutStore.getState().reset());
+
+  it("conserve la clé lors d'une reprise et la renouvelle pour un nouveau panier", () => {
+    const actions = useCheckoutStore.getState();
+    actions.startCheckout("shop", "Boutique", []);
+    const key = useCheckoutStore.getState().checkoutKey;
+    expect(key).toBeTruthy();
+    actions.setPaymentMethod("wave");
+    expect(useCheckoutStore.getState().checkoutKey).toBe(key);
+    actions.startCheckout("shop", "Boutique", []);
+    expect(useCheckoutStore.getState().checkoutKey).not.toBe(key);
+  });
+
+  it("renouvelle la clé quand les conditions de paiement changent", () => {
+    const actions = useCheckoutStore.getState();
+    actions.startCheckout("shop", "Boutique", []);
+    const key = useCheckoutStore.getState().checkoutKey;
+    actions.setPaymentMethod("orange_money");
+    expect(useCheckoutStore.getState().checkoutKey).not.toBe(key);
+  });
+});

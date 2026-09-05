@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { browserSessionRequest } from "@/lib/session";
 import type { AuthUser, Role } from "@/types";
 
 export type { AuthUser, Role };
@@ -15,6 +15,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   hasHydrated: boolean;
+  sessionVersion: number;
   loginSuccess: (payload: LoginPayload) => void;
   setTokens: (access: string, refresh?: string) => void;
   updateUser: (patch: Partial<AuthUser>) => void;
@@ -23,16 +24,18 @@ interface AuthState {
   setHasHydrated: (value: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+// Efface les anciens JWT persistés lors de la migration vers le cookie HttpOnly.
+try { globalThis.localStorage?.removeItem("sunu-mall-auth"); } catch { /* stockage indisponible */ }
+
+export const useAuthStore = create<AuthState>()((set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
       hasHydrated: false,
+      sessionVersion: 0,
 
       loginSuccess: ({ user, access, refresh }) =>
-        set({ user, accessToken: access, refreshToken: refresh }),
+        set((state) => ({ user, accessToken: access, refreshToken: refresh, sessionVersion: state.sessionVersion + 1 })),
 
       setTokens: (access, refresh) =>
         set((state) => ({
@@ -42,17 +45,12 @@ export const useAuthStore = create<AuthState>()(
 
       updateUser: (patch) => set((state) => (state.user ? { user: { ...state.user, ...patch } } : {})),
 
-      logout: () => set({ user: null, accessToken: null, refreshToken: null }),
+      logout: () => {
+        set((state) => ({ user: null, accessToken: null, refreshToken: null, sessionVersion: state.sessionVersion + 1 }));
+        void browserSessionRequest("logout").catch(() => undefined);
+      },
 
       hasRole: (role) => !!get().user?.roles.includes(role),
 
       setHasHydrated: (value) => set({ hasHydrated: value }),
-    }),
-    {
-      name: "sunu-mall-auth",
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
-    },
-  ),
-);
+}));

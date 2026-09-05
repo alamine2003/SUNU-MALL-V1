@@ -1,4 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { lazy } from "react";
 
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { MarketplaceLayout } from "@/components/layout/MarketplaceLayout";
@@ -7,53 +9,53 @@ import { MerchantLayout } from "@/components/layout/MerchantLayout";
 import { DriverLayout } from "@/components/layout/DriverLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 
-import SplashPage from "@/pages/splash";
-import LoginPage from "@/pages/login";
-import RegisterClientPage from "@/pages/register-client";
-import RegisterMerchantPage from "@/pages/register-merchant";
-import VerifyEmailPage from "@/pages/verify-email";
-import DriverLoginPage from "@/pages/driver-login";
+const SplashPage = lazy(() => import("@/pages/splash"));
+const LoginPage = lazy(() => import("@/pages/login"));
+const RegisterClientPage = lazy(() => import("@/pages/register-client"));
+const RegisterMerchantPage = lazy(() => import("@/pages/register-merchant"));
+const VerifyEmailPage = lazy(() => import("@/pages/verify-email"));
+const DriverLoginPage = lazy(() => import("@/pages/driver-login"));
 
-import HomePage from "@/pages/home";
-import SearchPage from "@/pages/search";
-import BoutiquesPage from "@/pages/boutiques";
-import BoutiqueDetailPage from "@/pages/boutique-detail";
-import ProductDetailPage from "@/pages/product-detail";
-import CategoryIndexPage from "@/pages/category";
-import CategoryDetailPage from "@/pages/category-detail";
-import WishlistPage from "@/pages/wishlist";
-import RecentlyViewedPage from "@/pages/recently-viewed";
-import NotificationsPage from "@/pages/notifications";
+const HomePage = lazy(() => import("@/pages/home"));
+const SearchPage = lazy(() => import("@/pages/search"));
+const BoutiquesPage = lazy(() => import("@/pages/boutiques"));
+const BoutiqueDetailPage = lazy(() => import("@/pages/boutique-detail"));
+const ProductDetailPage = lazy(() => import("@/pages/product-detail"));
+const CategoryIndexPage = lazy(() => import("@/pages/category"));
+const CategoryDetailPage = lazy(() => import("@/pages/category-detail"));
+const WishlistPage = lazy(() => import("@/pages/wishlist"));
+const RecentlyViewedPage = lazy(() => import("@/pages/recently-viewed"));
+const NotificationsPage = lazy(() => import("@/pages/notifications"));
 
-import CartPage from "@/pages/cart";
-import CheckoutAddressPage from "@/pages/checkout-address";
-import CheckoutDeliveryPage from "@/pages/checkout-delivery";
-import CheckoutPaymentPage from "@/pages/checkout-payment";
-import OrderConfirmedPage from "@/pages/order-confirmed";
-import OrdersPage from "@/pages/orders";
-import TrackingPage from "@/pages/tracking";
-import DeliveryConfirmPage from "@/pages/delivery-confirm";
+const CartPage = lazy(() => import("@/pages/cart"));
+const CheckoutAddressPage = lazy(() => import("@/pages/checkout-address"));
+const CheckoutDeliveryPage = lazy(() => import("@/pages/checkout-delivery"));
+const CheckoutPaymentPage = lazy(() => import("@/pages/checkout-payment"));
+const OrderConfirmedPage = lazy(() => import("@/pages/order-confirmed"));
+const OrdersPage = lazy(() => import("@/pages/orders"));
+const TrackingPage = lazy(() => import("@/pages/tracking"));
+const DeliveryConfirmPage = lazy(() => import("@/pages/delivery-confirm"));
 
-import MerchantDashboardPage from "@/pages/merchant";
-import CreateShopPage from "@/pages/create-shop";
-import StoreSettingsPage from "@/pages/store-settings";
-import AddProductPage from "@/pages/add-product";
-import CatalogPage from "@/pages/catalog";
-import SubscriptionsPage from "@/pages/subscriptions";
-import AnalyticsPage from "@/pages/analytics";
-import LiveSalesPage from "@/pages/live-sales";
-import OrderDetailPage from "@/pages/order-detail";
+const MerchantDashboardPage = lazy(() => import("@/pages/merchant"));
+const CreateShopPage = lazy(() => import("@/pages/create-shop"));
+const StoreSettingsPage = lazy(() => import("@/pages/store-settings"));
+const AddProductPage = lazy(() => import("@/pages/add-product"));
+const CatalogPage = lazy(() => import("@/pages/catalog"));
+const SubscriptionsPage = lazy(() => import("@/pages/subscriptions"));
+const AnalyticsPage = lazy(() => import("@/pages/analytics"));
+const LiveSalesPage = lazy(() => import("@/pages/live-sales"));
+const OrderDetailPage = lazy(() => import("@/pages/order-detail"));
 
-import DriverDashboardPage from "@/pages/driver-dashboard";
-import DriverDeliveryPage from "@/pages/driver-delivery";
-import DriverProfilePage from "@/pages/driver-profile";
+const DriverDashboardPage = lazy(() => import("@/pages/driver-dashboard"));
+const DriverDeliveryPage = lazy(() => import("@/pages/driver-delivery"));
+const DriverProfilePage = lazy(() => import("@/pages/driver-profile"));
 
-import AdminDashboardPage from "@/pages/admin";
-import AdminUsersPage from "@/pages/admin-users";
-import AdminManagersPage from "@/pages/admin-managers";
-import AdminShopsPage from "@/pages/admin-shops";
-import AdminOrdersPage from "@/pages/admin-orders";
-import AdminPaymentsPage from "@/pages/admin-payments";
+const AdminDashboardPage = lazy(() => import("@/pages/admin"));
+const AdminUsersPage = lazy(() => import("@/pages/admin-users"));
+const AdminManagersPage = lazy(() => import("@/pages/admin-managers"));
+const AdminShopsPage = lazy(() => import("@/pages/admin-shops"));
+const AdminOrdersPage = lazy(() => import("@/pages/admin-orders"));
+const AdminPaymentsPage = lazy(() => import("@/pages/admin-payments"));
 
 export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/home" replace /> },
@@ -141,4 +143,4 @@ export const router = createBrowserRouter([
   },
 
   { path: "*", element: <Navigate to="/home" replace /> },
-]);
+], { basename: import.meta.env.BASE_URL });

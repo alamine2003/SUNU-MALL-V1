@@ -45,8 +45,10 @@ export default function SubscriptionsPage() {
   const [pendingPayment, setPendingPayment] = useState<Payment | null>(null);
   const [confirming, setConfirming] = useState<"success" | "failed" | null>(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
+  const [paymentSession, setPaymentSession] = useState<paymentsApi.InitiatePaymentResult | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  const awaitingPayment = subscriptions?.filter((s) => s.status === "pending") ?? [];
   const activeSubscription = subscriptions?.find((s) => s.status === "active");
 
   async function openSubscribeModal(plan: SubscriptionPlan) {
@@ -72,6 +74,7 @@ export default function SubscriptionsPage() {
     setMethod("wave");
     setPendingSubscription(null);
     setPendingPayment(null);
+    setPaymentSession(null);
     setPaymentFailed(false);
     setModalError(null);
   }
@@ -86,13 +89,33 @@ export default function SubscriptionsPage() {
     setModalError(null);
     try {
       const { subscription, payment } = await monetizationApi.subscribe(target.id, method);
+      setPaymentFailed(false);
       setPendingSubscription(subscription);
       setPendingPayment(payment);
+      refetch();
+      if (payment) {
+        await startPayment(payment);
+      } else {
+        closeModal();
+        announceSuccess(target.name, subscription.ends_at);
+      }
     } catch (err) {
       const data = err instanceof ApiError ? (err.data as { error?: string }) : null;
       setModalError(data?.error ?? "Impossible de souscrire à cette offre pour le moment.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function startPayment(payment: Payment) {
+    setModalError(null);
+    setPaymentSession(null);
+    try {
+      const session = await paymentsApi.initiatePayment(payment.id);
+      setPaymentSession(session);
+      if (!session.sandbox && session.checkout_url) window.location.assign(session.checkout_url);
+    } catch {
+      setModalError("Impossible de démarrer le paiement. Vous pouvez réessayer ou annuler l'abonnement en attente.");
     }
   }
 
@@ -107,7 +130,10 @@ export default function SubscriptionsPage() {
         refetch();
       } else {
         setPaymentFailed(true);
+        refetch();
       }
+    } catch {
+      setModalError("Impossible de confirmer le paiement. Réessayez dans quelques instants.");
     } finally {
       setConfirming(null);
     }
@@ -126,6 +152,8 @@ export default function SubscriptionsPage() {
     try {
       await monetizationApi.cancelSubscription(id);
       refetch();
+    } catch {
+      setError("Impossible d'annuler cet abonnement.");
     } finally {
       setBusy(null);
     }
@@ -150,6 +178,20 @@ export default function SubscriptionsPage() {
           {error}
         </div>
       )}
+      {awaitingPayment.map((subscription) => {
+        const plan = plans?.find((offer) => offer.id === subscription.plan);
+        return (
+          <Card key={subscription.id} className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm">Abonnement en attente de paiement : {plan?.name ?? "offre précédente"}</p>
+            <div className="flex gap-2">
+              {plan && <Button onClick={() => openSubscribeModal(plan)}>Reprendre le paiement</Button>}
+              <Button variant="secondary" loading={busy === subscription.id} onClick={() => cancel(subscription.id)}>
+                Annuler l'abonnement en attente
+              </Button>
+            </div>
+          </Card>
+        );
+      })}
       {plans?.length === 0 ? (
         <EmptyState icon={Crown} title="Aucune offre disponible" description="Revenez plus tard, de nouvelles offres seront proposées." />
       ) : (
@@ -219,9 +261,7 @@ export default function SubscriptionsPage() {
                       <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-accent text-orange">
                         {m.image ? (
                           <img src={m.image} alt={m.label} className="h-full w-full object-cover" />
-                        ) : (
-                          m.icon && <m.icon className="h-4 w-4" />
-                        )}
+                        ) : null}
                       </span>
                       <p className="text-sm font-semibold text-ink">{m.label}</p>
                     </div>
@@ -243,25 +283,31 @@ export default function SubscriptionsPage() {
 
         {pendingPayment && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            {paymentSession?.sandbox && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               <FlaskConical className="h-4 w-4 shrink-0" />
               <div>
                 <p className="font-semibold">Mode test (sandbox)</p>
                 <p>Aucune vraie transaction Wave/Orange Money/carte n'est envoyée.</p>
               </div>
             </div>
+            }
+            {modalError && <p role="alert" className="text-sm text-danger">{modalError}</p>}
+            {!paymentSession && (modalError
+              ? <Button onClick={() => startPayment(pendingPayment)}>Réessayer le paiement</Button>
+              : <Spinner label="Préparation du paiement…" />)}
+            {paymentSession && !paymentSession.sandbox && <p>Redirection vers le paiement sécurisé…</p>}
             <p className="text-sm text-muted-foreground">
               {formatPrice(pendingPayment.amount)} via {METHODS.find((m) => m.id === pendingPayment.method)?.label}
             </p>
 
-            {paymentFailed ? (
+            {paymentSession?.sandbox && (paymentFailed ? (
               <div className="flex flex-col items-center gap-3 py-2 text-center">
                 <span className="grid h-14 w-14 place-items-center rounded-full bg-red-100">
                   <XCircle className="h-8 w-8 text-danger" />
                 </span>
                 <p className="text-sm font-medium text-danger">Paiement simulé en échec.</p>
-                <Button onClick={() => handleSandboxOutcome("success")} loading={confirming === "success"}>
-                  Réessayer (simuler succès)
+                <Button onClick={handleCreateSubscription} loading={creating}>
+                  Réessayer avec un nouveau paiement
                 </Button>
               </div>
             ) : (
@@ -274,7 +320,7 @@ export default function SubscriptionsPage() {
                   Simuler échec
                 </Button>
               </div>
-            )}
+            ))}
           </div>
         )}
       </Modal>

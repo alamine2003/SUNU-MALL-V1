@@ -4,7 +4,8 @@
  */
 import { useAuthStore } from "@/store/authStore";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+import { API_BASE_URL, browserSessionRequest } from "@/lib/session";
+import type { LoginPayload } from "@/store/authStore";
 
 export class ApiError extends Error {
   status: number;
@@ -17,24 +18,24 @@ export class ApiError extends Error {
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  const { refreshToken, setTokens, logout } = useAuthStore.getState();
-  if (!refreshToken) return null;
+let refreshing: Promise<string | null> | null = null;
 
-  const res = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh: refreshToken }),
-  });
-
-  if (!res.ok) {
-    logout();
-    return null;
-  }
-
-  const data = await res.json();
-  setTokens(data.access, data.refresh ?? refreshToken);
-  return data.access as string;
+export function refreshAccessToken(): Promise<string | null> {
+  if (refreshing) return refreshing;
+  const version = useAuthStore.getState().sessionVersion;
+  refreshing = (async () => {
+    const res = await browserSessionRequest("refresh");
+    if (useAuthStore.getState().sessionVersion !== version) return null;
+    if (!res.ok) {
+      if (res.status === 401) useAuthStore.setState((state) => ({ user: null, accessToken: null, refreshToken: null, sessionVersion: state.sessionVersion + 1 }));
+      return null;
+    }
+    const data: LoginPayload = await res.json();
+    if (useAuthStore.getState().sessionVersion !== version) return null;
+    useAuthStore.getState().loginSuccess(data);
+    return data.access;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
 }
 
 interface RequestOptions {
@@ -61,7 +62,8 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
   });
 
   if (res.status === 401 && auth && !isRetry) {
-    const newToken = await refreshAccessToken();
+    const currentToken = useAuthStore.getState().accessToken;
+    const newToken = currentToken && headers.Authorization !== `Bearer ${currentToken}` ? currentToken : await refreshAccessToken();
     if (newToken) {
       return request<T>(path, options, true);
     }
@@ -89,9 +91,6 @@ export const apiPost = <T>(path: string, body?: unknown, options?: Omit<RequestO
 
 export const apiPatch = <T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">) =>
   request<T>(path, { ...options, method: "PATCH", body });
-
-export const apiPut = <T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">) =>
-  request<T>(path, { ...options, method: "PUT", body });
 
 export const apiDelete = <T>(path: string, options?: Omit<RequestOptions, "method" | "body">) =>
   request<T>(path, { ...options, method: "DELETE" });

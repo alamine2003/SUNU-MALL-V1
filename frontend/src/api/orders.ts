@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { getCart } from "@/api/shopping";
 import type { Address, CheckoutPayload, Delivery, DeliveryStatus, Driver, DriverAvailability, Order, Paginated } from "@/types";
 
 export async function listAddresses() {
@@ -33,7 +34,10 @@ export function getOrder(id: string) {
 }
 
 export function checkout(payload: CheckoutPayload) {
-  return apiPost<Order>("/orders/checkout/", payload);
+  return apiPost<Order>("/orders/checkout/", payload).then((order) => {
+    void getCart().catch(() => undefined);
+    return order;
+  });
 }
 
 export function cancelOrder(id: string) {

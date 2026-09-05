@@ -1,4 +1,5 @@
-import { apiGet, apiPost } from "@/lib/api";
+import { browserSessionRequest } from "@/lib/session";
+import { ApiError, apiGet, apiPost } from "@/lib/api";
 import type { AuthUser } from "@/types";
 
 export interface AuthResponse {
@@ -9,7 +10,7 @@ export interface AuthResponse {
 }
 
 export function login(email: string, password: string) {
-  return apiPost<AuthResponse>("/auth/login/", { email, password }, { auth: false });
+  return browserAuth("login", { email, password });
 }
 
 export function register(payload: {
@@ -28,7 +29,7 @@ export function resendVerification(email: string) {
 }
 
 export function guestCheckout(payload: { email: string; first_name: string; last_name?: string; phone: string }) {
-  return apiPost<AuthResponse>("/auth/guest-checkout/", payload, { auth: false });
+  return browserAuth("guest-checkout", payload);
 }
 
 export function setPassword(password: string) {
@@ -40,4 +41,11 @@ export function verifyEmail(uid: string, token: string) {
     `/auth/verify-email/?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`,
     { auth: false },
   );
+}
+
+async function browserAuth(path: string, payload: unknown): Promise<AuthResponse> {
+  const response = await browserSessionRequest(path, payload);
+  const data = await response.json();
+  if (!response.ok) throw new ApiError(response.status, data);
+  return data;
 }

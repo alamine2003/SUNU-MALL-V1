@@ -46,9 +46,14 @@ export default function CatalogPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Supprimer ce produit ?")) return;
-    await catalogApi.deleteProduct(id);
-    refetch();
+    if (!confirm("Désactiver ce produit ? Il sera retiré de la vente et son historique sera conservé.")) return;
+    setPublishError(null);
+    try {
+      await catalogApi.deleteProduct(id);
+      refetch();
+    } catch {
+      setPublishError("Impossible de désactiver ce produit.");
+    }
   }
 
   async function publish(id: string) {
@@ -160,7 +165,7 @@ export default function CatalogPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
-                  {product.status === "draft" && (
+                  {product.status !== "active" && (
                     <button
                       onClick={() => publish(product.id)}
                       className="flex items-center gap-1.5 rounded-full bg-orange/10 px-3 py-1.5 text-xs font-semibold text-orange hover:bg-orange/20"
@@ -186,7 +191,8 @@ export default function CatalogPage() {
                   <button
                     onClick={() => remove(product.id)}
                     className="rounded-full p-2 text-muted-foreground hover:bg-muted"
-                    aria-label="Supprimer"
+                    aria-label="Désactiver"
+                    disabled={product.status === "inactive"}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

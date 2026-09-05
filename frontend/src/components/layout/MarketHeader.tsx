@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/Logo";
 import { CategoryMenu } from "@/components/marketplace/CategoryMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
+import { useShoppingStore } from "@/store/shoppingStore";
 import { roleHomePath } from "@/lib/roles";
 import * as shoppingApi from "@/api/shopping";
 import { cn } from "@/lib/utils";
@@ -29,24 +30,18 @@ export function MarketHeader() {
   const logout = useAuthStore((s) => s.logout);
   const [query, setQuery] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
-  const [favCount, setFavCount] = useState(0);
+  const { cartCount, favCount } = useShoppingStore();
 
   useEffect(() => {
+    useShoppingStore.setState({ cartCount: 0, favCount: 0 });
     if (!user) {
-      setCartCount(0);
-      setFavCount(0);
       return;
     }
-    shoppingApi
-      .getCart()
-      .then((cart) => setCartCount(cart.items.reduce((sum, item) => sum + item.quantity, 0)))
-      .catch(() => setCartCount(0));
-    shoppingApi
-      .getWishlist()
-      .then((wishlist) => setFavCount(wishlist.items.length))
-      .catch(() => setFavCount(0));
-  }, [user]);
+    void shoppingApi.getCart().catch(() => undefined);
+    void shoppingApi.getWishlist().catch(() => undefined);
+    // Les renouvellements JWT ne nécessitent pas de recharger les compteurs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

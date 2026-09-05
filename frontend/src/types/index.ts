@@ -227,6 +227,7 @@ export interface Order {
 }
 
 export interface CheckoutPayload {
+  checkout_key?: string;
   store: string;
   address: string;
   delivery_type: "pickup" | "standard" | "express";
