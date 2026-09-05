@@ -1,7 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import update_last_login
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.exceptions import APIException, AuthenticationFailed, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.settings import api_settings
@@ -17,6 +18,17 @@ from .serializers import (
 from .utils import email_verification_token, send_verification_email
 from apps.users.models import User
 from .emails import email_de_connexion, utilisateur_par_email
+
+
+class EmailDeliveryUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "L'envoi d'email est temporairement indisponible. Réessayez plus tard."
+    default_code = "email_delivery_unavailable"
+
+
+def require_email_delivery():
+    if not getattr(settings, "EMAIL_DELIVERY_ENABLED", True):
+        raise EmailDeliveryUnavailable()
 
 
 class VerifiedTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -77,6 +89,7 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        require_email_delivery()
         user = serializer.save()
         
         # Envoyer l'email de vérification
@@ -196,6 +209,7 @@ class ResendVerificationEmailView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        require_email_delivery()
         email = serializer.validated_data['email']
         
         user = utilisateur_par_email(email)
@@ -258,6 +272,7 @@ class SetPasswordView(generics.GenericAPIView):
             raise ValidationError("Ce compte possède déjà un mot de passe.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        require_email_delivery()
         request.user.set_password(serializer.validated_data['password'])
         request.user.save()
         send_verification_email(request.user)

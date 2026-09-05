@@ -65,8 +65,15 @@ if not PAYMENT_SANDBOX:
 
 # Les compteurs de débit doivent être partagés entre tous les workers.
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL, "KEY_PREFIX": "sunu-mall"}}
-if EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend":
-    raise ImproperlyConfigured("Configurer un backend email réel : les liens de vérification ne doivent pas être journalisés en production.")
+EMAIL_DELIVERY_ENABLED = EMAIL_BACKEND not in {
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+}
+if not EMAIL_DELIVERY_ENABLED:
+    # Ne jamais écrire les liens de vérification dans les journaux de
+    # production. Les endpoints concernés répondent 503 tant que SMTP n'est
+    # pas configuré, sans empêcher le catalogue de démarrer.
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 
 # Le déploiement hébergé actuel sépare GitHub Pages et Railway. Un proxy
 # same-site peut explicitement revenir à Lax, comme le Compose fourni.

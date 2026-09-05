@@ -97,6 +97,30 @@ class AuthTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', response.data)
 
+    @override_settings(EMAIL_DELIVERY_ENABLED=False)
+    def test_register_returns_503_without_creating_user_when_email_is_unavailable(self):
+        response = self.client.post(self.register_url, {
+            'email': 'email-down@example.com',
+            'password': 'testpassword123',
+            'first_name': 'Email',
+            'last_name': 'Down',
+            'phone': '+221771234568',
+            'role_name': 'client',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertFalse(User.objects.filter(email='email-down@example.com').exists())
+
+    @override_settings(EMAIL_DELIVERY_ENABLED=False)
+    def test_resend_returns_503_for_any_email_when_delivery_is_unavailable(self):
+        response = self.client.post(
+            self.resend_verification_url,
+            {'email': 'unknown@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
     def test_register_cannot_assign_an_admin_role(self):
         response = self.client.post(self.register_url, {
             'email': 'attacker@example.com',
