@@ -63,8 +63,26 @@ if not PAYMENT_SANDBOX:
     if not NABOOPAY_BASE_URL.startswith("https://"):
         raise ImproperlyConfigured("NABOOPAY_BASE_URL doit utiliser HTTPS hors sandbox.")
 
-# Les compteurs de débit doivent être partagés entre tous les workers.
-CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL, "KEY_PREFIX": "sunu-mall"}}
+# Les compteurs de débit sont partagés entre les workers. Railway peut
+# démarrer sans module Redis ; dans ce cas le cache de fichiers du conteneur
+# garde un état commun aux processus Gunicorn.
+_production_redis_url = config("REDIS_URL", default="")
+if _production_redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _production_redis_url,
+            "KEY_PREFIX": "sunu-mall",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": "/tmp/sunu-mall-cache",
+            "KEY_PREFIX": "sunu-mall",
+        }
+    }
 EMAIL_DELIVERY_ENABLED = EMAIL_BACKEND not in {
     "django.core.mail.backends.console.EmailBackend",
     "django.core.mail.backends.dummy.EmailBackend",

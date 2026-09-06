@@ -203,3 +203,16 @@ jobs:
           tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie: csrftoken='
           tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie:.*[; ]Secure([; ]|$)'
           tr -d '\r' < "$RUNNER_TEMP/csrf.headers" | grep -Eqi '^set-cookie:.*SameSite=None([; ]|$)'
+
+      - name: Show Railway runtime logs after smoke failure
+        if: ${{ failure() }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          npx --yes @railway/cli logs --latest --lines 120 \
+            --project "$RAILWAY_PROJECT_ID" \
+            --service "$RAILWAY_SERVICE_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_ID"
