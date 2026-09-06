@@ -48,6 +48,7 @@ COPY . .
 
 EXPOSE 8000
 
-# En dev, ce CMD est écrasé par docker-compose (reload activé).
-# En prod, on utilisera gunicorn (voir infra/).
-CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-2}"]
+# En dev, ce CMD est écrasé par docker-compose (reload activé). En production,
+# les migrations doivent réussir avant l'ouverture du port : le service ne
+# peut ainsi jamais paraître sain avec un schéma de base de données absent.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-2}"]
