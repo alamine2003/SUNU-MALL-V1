@@ -63,15 +63,16 @@ if not PAYMENT_SANDBOX:
     if not NABOOPAY_BASE_URL.startswith("https://"):
         raise ImproperlyConfigured("NABOOPAY_BASE_URL doit utiliser HTTPS hors sandbox.")
 
-# Les compteurs de débit sont partagés entre les workers. Railway peut
-# démarrer sans module Redis ; dans ce cas le cache de fichiers du conteneur
-# garde un état commun aux processus Gunicorn.
-_production_redis_url = config("REDIS_URL", default="")
-if _production_redis_url:
+# Le broker Celery et le cache web sont deux dépendances distinctes. Un ancien
+# REDIS_URL de broker ne doit donc pas remettre le catalogue sur un Redis
+# absent. Le cache Redis n'est activé que lorsqu'il est fourni explicitement ;
+# sinon le cache de fichiers reste partagé entre les workers Gunicorn.
+_production_cache_url = config("CACHE_REDIS_URL", default="")
+if _production_cache_url:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": _production_redis_url,
+            "LOCATION": _production_cache_url,
             "KEY_PREFIX": "sunu-mall",
         }
     }
@@ -83,6 +84,28 @@ else:
             "KEY_PREFIX": "sunu-mall",
         }
     }
+
+# Les erreurs applicatives doivent apparaître dans les journaux Railway. Le
+# contenu des réponses 500 reste générique puisque DEBUG demeure désactivé.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
 EMAIL_DELIVERY_ENABLED = EMAIL_BACKEND not in {
     "django.core.mail.backends.console.EmailBackend",
     "django.core.mail.backends.dummy.EmailBackend",
