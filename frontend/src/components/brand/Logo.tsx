@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { publicAsset } from "@/lib/assets";
 import { cn } from "@/lib/utils";
 
 export function Logo({
@@ -29,7 +30,7 @@ export function Logo({
         </span>
       ) : (
         <img
-          src="/logo.png"
+          src={publicAsset("logo.png")}
           alt="SUNU MALL"
           onError={() => setImgFailed(true)}
           style={{ height: size, width: "auto", filter: light ? "brightness(0) invert(1)" : undefined }}

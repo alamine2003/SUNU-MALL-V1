@@ -1,11 +1,15 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { Logo } from "@/components/brand/Logo";
+import { publicAsset } from "@/lib/assets";
 
 const AUTH_IMAGES: Record<string, { src: string; alt: string }> = {
-  "/register-client": { src: "/hero-shopper.jpg", alt: "Cliente Sunu Mall avec ses achats" },
-  "/register-merchant": { src: "/merchant-store.jpg", alt: "Commerçant Sunu Mall conseillant une cliente en boutique" },
+  "/register-client": { src: publicAsset("hero-shopper.jpg"), alt: "Cliente Sunu Mall avec ses achats" },
+  "/register-merchant": {
+    src: publicAsset("merchant-store.jpg"),
+    alt: "Commerçant Sunu Mall conseillant une cliente en boutique",
+  },
 };
-const DEFAULT_AUTH_IMAGE = { src: "/auth-client.jpg", alt: "Client Sunu Mall" };
+const DEFAULT_AUTH_IMAGE = { src: publicAsset("auth-client.jpg"), alt: "Client Sunu Mall" };
 
 export function AuthLayout() {
   const { pathname } = useLocation();

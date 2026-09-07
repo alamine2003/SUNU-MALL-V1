@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuthStore } from "@/store/authStore";
 import { ApiError } from "@/lib/api";
+import { publicAsset } from "@/lib/assets";
 import { formatPrice } from "@/lib/utils";
 
 function SetPasswordPrompt() {
@@ -88,7 +89,7 @@ export default function OrderConfirmedPage() {
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <div className="relative">
         <img
-          src="/order-handoff.jpg"
+          src={publicAsset("order-handoff.jpg")}
           alt="Remise de commande Sunu Mall"
           className="h-40 w-40 rounded-full border-4 border-white object-cover shadow-xl sm:h-48 sm:w-48"
         />

@@ -25,6 +25,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useAuthStore } from "@/store/authStore";
+import { publicAsset } from "@/lib/assets";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
 
@@ -102,13 +103,13 @@ export default function HomePage() {
             <p className="mt-4 max-w-md text-base leading-relaxed text-gray-500">
               Achetez en toute confiance parmi des milliers de boutiques et faites-vous livrer partout.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/search" className="btn-orange inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link to="/search" className="btn-orange inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold">
                 Découvrir les boutiques
               </Link>
               <Link
                 to="/register-merchant"
-                className="inline-flex items-center gap-2 rounded-xl bg-navy px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-navy-2"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-navy-2"
               >
                 Créer ma boutique
               </Link>
@@ -136,15 +137,15 @@ export default function HomePage() {
           <div className="relative flex min-h-[340px] items-end justify-center overflow-hidden rounded-[2rem] sm:min-h-[420px]">
             <HeroSlideshow
               images={[
-                { src: "/hero-shopper.jpg", alt: "Cliente Sunu Mall avec ses achats" },
-                { src: "/live-shopping.jpg", alt: "Vente en direct sur Sunu Mall" },
-                { src: "/merchant-store.jpg", alt: "Commerçant conseillant une cliente" },
-                { src: "/order-handoff.jpg", alt: "Remise de commande Sunu Mall" },
+                { src: publicAsset("hero-shopper.jpg"), alt: "Cliente Sunu Mall avec ses achats" },
+                { src: publicAsset("live-shopping.jpg"), alt: "Vente en direct sur Sunu Mall" },
+                { src: publicAsset("merchant-store.jpg"), alt: "Commerçant conseillant une cliente" },
+                { src: publicAsset("order-handoff.jpg"), alt: "Remise de commande Sunu Mall" },
               ]}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-white/5" />
             <img
-              src="/hero-illustration.png"
+              src={publicAsset("hero-illustration.png")}
               alt="Sunu Mall marketplace illustration"
               className="relative z-10 w-full max-w-[420px] drop-shadow-2xl"
             />

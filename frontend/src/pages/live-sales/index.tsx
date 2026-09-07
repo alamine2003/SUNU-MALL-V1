@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { publicAsset } from "@/lib/assets";
 import { formatDate, formatPrice } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
@@ -34,7 +35,11 @@ export default function LiveSalesPage() {
   return (
     <div>
       <div className="relative mb-6 overflow-hidden rounded-2xl">
-        <img src="/live-shopping.jpg" alt="Vendeur en direct présentant ses produits" className="h-40 w-full object-cover sm:h-52" />
+        <img
+          src={publicAsset("live-shopping.jpg")}
+          alt="Vendeur en direct présentant ses produits"
+          className="h-40 w-full object-cover sm:h-52"
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-navy/85 via-navy/40 to-transparent" />
         <div className="absolute inset-0 flex flex-col justify-center px-6">
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-white">

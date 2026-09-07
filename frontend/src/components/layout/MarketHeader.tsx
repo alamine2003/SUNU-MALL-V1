@@ -56,21 +56,23 @@ export function MarketHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <Logo to="/home" size={48} className="shrink-0" />
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:py-3">
+        <Logo to="/home" size={44} className="shrink-0" />
 
-        <form onSubmit={handleSearch} className="ml-2 flex max-w-4xl flex-1 items-center sm:ml-6">
-          <div className="flex w-full rounded-lg border border-gray-200 shadow-sm transition-all focus-within:border-orange focus-within:ring-2 focus-within:ring-orange/20">
-            <CategoryMenu />
+        <form onSubmit={handleSearch} className="order-3 flex min-w-0 w-full items-center sm:order-none sm:ml-6 sm:max-w-4xl sm:flex-1">
+          <div className="flex min-w-0 w-full rounded-lg border border-gray-200 shadow-sm transition-all focus-within:border-orange focus-within:ring-2 focus-within:ring-orange/20">
+            <div className="hidden md:block">
+              <CategoryMenu />
+            </div>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher un produit, boutique…"
-              className="flex-1 rounded-none bg-white px-4 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400"
+              className="min-w-0 flex-1 rounded-l-lg bg-white px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 md:rounded-none md:px-4"
             />
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-r-lg bg-orange px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-dark"
+              className="flex items-center gap-2 rounded-r-lg bg-orange px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-dark sm:px-5"
             >
               <Search className="h-4 w-4" />
               <span className="hidden sm:block">Rechercher</span>
@@ -78,17 +80,17 @@ export function MarketHeader() {
           </div>
         </form>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
           <NotificationBell />
 
           {user?.roles.includes("client") && (
-            <Link to="/orders" className="group relative flex flex-col items-center gap-0.5 px-2 py-1">
+            <Link to="/orders" className="group relative flex flex-col items-center gap-0.5 px-1.5 py-1 sm:px-2">
               <Package className="h-5 w-5 text-gray-500 transition-colors group-hover:text-orange" />
               <span className="hidden text-[10px] text-gray-400 sm:block">Commandes</span>
             </Link>
           )}
 
-          <Link to="/wishlist" className="group relative flex flex-col items-center gap-0.5 px-2 py-1">
+          <Link to="/wishlist" className="group relative flex flex-col items-center gap-0.5 px-1.5 py-1 sm:px-2">
             <div className="relative">
               <Heart className={cn("h-5 w-5 transition-colors", favCount > 0 ? "fill-orange text-orange" : "text-gray-500 group-hover:text-orange")} />
               {favCount > 0 && (
@@ -100,7 +102,7 @@ export function MarketHeader() {
             <span className="hidden text-[10px] text-gray-400 sm:block">Favoris</span>
           </Link>
 
-          <Link to="/cart" className="group relative flex flex-col items-center gap-0.5 px-2 py-1">
+          <Link to="/cart" className="group relative flex flex-col items-center gap-0.5 px-1.5 py-1 sm:px-2">
             <div className="relative">
               <ShoppingCart className="h-5 w-5 text-gray-500 transition-colors group-hover:text-orange" />
               {cartCount > 0 && (
@@ -116,7 +118,7 @@ export function MarketHeader() {
             <div className="relative">
               <button
                 onClick={() => setAccountOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 transition-colors hover:bg-gray-50"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 transition-colors hover:bg-gray-50 sm:px-3"
               >
                 <span className="grid h-6 w-6 place-items-center rounded-full bg-navy text-[11px] font-bold text-white">
                   {user.first_name.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
@@ -156,7 +158,7 @@ export function MarketHeader() {
           ) : (
             <Link
               to="/login"
-              className="group flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 transition-colors hover:bg-gray-50"
+              className="group flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-2 transition-colors hover:bg-gray-50 sm:px-3"
             >
               <User className="h-4 w-4 text-gray-500 group-hover:text-orange" />
               <span className="hidden text-sm text-gray-600 sm:block">Mon compte</span>

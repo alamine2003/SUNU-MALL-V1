@@ -1,3 +1,5 @@
+import { publicAsset } from "@/lib/assets";
+
 export interface PaymentMethodOption {
   id: "wave" | "orange_money";
   label: string;
@@ -6,6 +8,6 @@ export interface PaymentMethodOption {
 }
 
 export const PAYMENT_METHODS: PaymentMethodOption[] = [
-  { id: "wave", label: "Wave", image: "/wave.png" },
-  { id: "orange_money", label: "Orange Money", image: "/orange-money.png" },
+  { id: "wave", label: "Wave", image: publicAsset("wave.png") },
+  { id: "orange_money", label: "Orange Money", image: publicAsset("orange-money.png") },
 ];
