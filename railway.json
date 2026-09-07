@@ -2,8 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
     "preDeployCommand": [
-      "DJANGO_SETTINGS_MODULE=config.settings.prod python manage.py migrate --noinput",
-      "DJANGO_SETTINGS_MODULE=config.settings.prod python manage.py seed_demo_catalog --if-empty"
+      "DJANGO_SETTINGS_MODULE=config.settings.prod python manage.py migrate --noinput"
     ]
   }
 }
