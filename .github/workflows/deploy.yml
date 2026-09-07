@@ -183,7 +183,12 @@ jobs:
             --connect-timeout 5 --max-time 10 \
             --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 120 \
             "$API_URL/catalog/products/" -o "$RUNNER_TEMP/catalog.json"
-          jq -e 'type == "object" and has("results")' "$RUNNER_TEMP/catalog.json" >/dev/null
+          jq -e 'type == "object" and .count >= 16 and (.results | length > 0)' "$RUNNER_TEMP/catalog.json" >/dev/null
+          product_image="$(jq -er '.results[0].images[0].url | select(type == "string" and length > 0)' "$RUNNER_TEMP/catalog.json")"
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 10 \
+            --retry 3 --retry-all-errors --retry-delay 2 \
+            "$product_image" -o /dev/null
           curl --fail --silent --show-error -X OPTIONS \
             -H "Origin: $FRONTEND_ORIGIN" \
             -H 'Access-Control-Request-Method: GET' \
