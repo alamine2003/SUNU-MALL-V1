@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-CU3EbJiN.js";import{Wt as t}from"./index-CQvUUNYG.js";var n=e();function r({className:e,variant:r=`rect`}){return(0,n.jsx)(`div`,{className:t(`skeleton`,r===`text`&&`h-4 w-full rounded-md`,r===`circle`&&`aspect-square rounded-full`,r===`rect`&&`h-4 w-full`,e)})}export{r as t};
