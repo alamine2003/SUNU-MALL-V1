@@ -110,10 +110,15 @@ EMAIL_DELIVERY_ENABLED = EMAIL_BACKEND not in {
     "django.core.mail.backends.console.EmailBackend",
     "django.core.mail.backends.dummy.EmailBackend",
 }
+EMAIL_VERIFICATION_REQUIRED = config(
+    "EMAIL_VERIFICATION_REQUIRED",
+    default=EMAIL_DELIVERY_ENABLED,
+    cast=bool,
+)
 if not EMAIL_DELIVERY_ENABLED:
     # Ne jamais écrire les liens de vérification dans les journaux de
-    # production. Les endpoints concernés répondent 503 tant que SMTP n'est
-    # pas configuré, sans empêcher le catalogue de démarrer.
+    # production. Les actions qui exigent explicitement un email répondent
+    # 503 tant que SMTP n'est pas configuré.
     EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 
 # Le déploiement hébergé actuel sépare GitHub Pages et Railway. Un proxy

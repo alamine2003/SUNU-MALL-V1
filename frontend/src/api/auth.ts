@@ -7,6 +7,7 @@ export interface AuthResponse {
   access: string | null;
   refresh: string | null;
   message?: string;
+  verification_required?: boolean;
 }
 
 export function login(email: string, password: string) {

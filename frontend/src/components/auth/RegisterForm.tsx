@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,7 +21,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function RegisterForm({ role }: { role: "client" | "merchant" }) {
   const [serverError, setServerError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState<boolean | null>(null);
 
   const {
     register,
@@ -31,20 +32,26 @@ export function RegisterForm({ role }: { role: "client" | "merchant" }) {
   async function onSubmit(values: FormValues) {
     setServerError(null);
     try {
-      await authApi.register({ ...values, role_name: role });
-      setDone(true);
+      const response = await authApi.register({ ...values, role_name: role });
+      setVerificationRequired(response.verification_required ?? true);
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as Record<string, unknown>;
         const firstError = Object.values(data ?? {})[0];
-        setServerError(Array.isArray(firstError) ? String(firstError[0]) : "Inscription impossible.");
+        setServerError(
+          Array.isArray(firstError)
+            ? String(firstError[0])
+            : typeof firstError === "string"
+              ? firstError
+              : "Inscription impossible.",
+        );
       } else {
         setServerError("Impossible de contacter le serveur.");
       }
     }
   }
 
-  if (done) {
+  if (verificationRequired !== null) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-2xl bg-green-50/60 py-8 text-center">
         <span className="grid h-14 w-14 place-items-center rounded-full bg-green-100">
@@ -52,8 +59,18 @@ export function RegisterForm({ role }: { role: "client" | "merchant" }) {
         </span>
         <h2 className="font-display text-lg font-bold text-ink">Inscription réussie !</h2>
         <p className="max-w-xs text-sm text-muted-foreground">
-          Vérifiez votre boîte mail pour activer votre compte avant de vous connecter.
+          {verificationRequired
+            ? "Vérifiez votre boîte mail pour activer votre compte avant de vous connecter."
+            : "Votre compte est prêt. Vous pouvez maintenant vous connecter."}
         </p>
+        {!verificationRequired && (
+          <Link
+            to="/login"
+            className="focus-ring mt-2 rounded-xl bg-orange px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-dark"
+          >
+            Se connecter
+          </Link>
+        )}
       </div>
     );
   }

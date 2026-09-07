@@ -75,6 +75,7 @@ class AuthTests(TestCase):
         self.assertIn('refresh', response.data)
         self.assertIsNone(response.data['access'])
         self.assertIsNone(response.data['refresh'])
+        self.assertTrue(response.data['verification_required'])
         self.assertEqual(response.data['user']['email'], data['email'])
         self.assertEqual(response.data['user']['roles'], ['client'])
         mocked_send.assert_called_once()
@@ -97,19 +98,42 @@ class AuthTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', response.data)
 
-    @override_settings(EMAIL_DELIVERY_ENABLED=False)
-    def test_register_returns_503_without_creating_user_when_email_is_unavailable(self):
+    @override_settings(
+        EMAIL_DELIVERY_ENABLED=False,
+        EMAIL_VERIFICATION_REQUIRED=False,
+    )
+    def test_register_auto_verifies_when_email_is_unavailable(self):
+        with patch('apps.auth.views.send_verification_email') as mocked_send:
+            response = self.client.post(self.register_url, {
+                'email': 'email-down@example.com',
+                'password': 'testpassword123',
+                'first_name': 'Email',
+                'last_name': 'Down',
+                'phone': '+221771234568',
+                'role_name': 'client',
+            }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(response.data['verification_required'])
+        self.assertTrue(User.objects.get(email='email-down@example.com').is_verified)
+        mocked_send.assert_not_called()
+
+    @override_settings(
+        EMAIL_DELIVERY_ENABLED=False,
+        EMAIL_VERIFICATION_REQUIRED=True,
+    )
+    def test_register_returns_503_when_verification_is_explicitly_required(self):
         response = self.client.post(self.register_url, {
-            'email': 'email-down@example.com',
+            'email': 'verification-required@example.com',
             'password': 'testpassword123',
             'first_name': 'Email',
-            'last_name': 'Down',
-            'phone': '+221771234568',
+            'last_name': 'Required',
+            'phone': '+221771234569',
             'role_name': 'client',
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertFalse(User.objects.filter(email='email-down@example.com').exists())
+        self.assertFalse(User.objects.filter(email='verification-required@example.com').exists())
 
     @override_settings(EMAIL_DELIVERY_ENABLED=False)
     def test_resend_returns_503_for_any_email_when_delivery_is_unavailable(self):

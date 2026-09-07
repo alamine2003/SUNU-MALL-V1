@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import update_last_login
+from django.db import transaction
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import APIException, AuthenticationFailed, ValidationError
 from rest_framework.response import Response
@@ -89,11 +90,20 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        require_email_delivery()
-        user = serializer.save()
-        
-        # Envoyer l'email de vérification
-        send_verification_email(user)
+        verification_required = getattr(settings, "EMAIL_VERIFICATION_REQUIRED", True)
+        if verification_required:
+            require_email_delivery()
+
+        with transaction.atomic():
+            user = serializer.save()
+            if verification_required:
+                send_verification_email(user)
+            else:
+                # Un environnement sans fournisseur d'email doit rester
+                # utilisable. L'ajout ultérieur d'un SMTP réactive
+                # automatiquement la vérification pour les nouveaux comptes.
+                user.is_verified = True
+                user.save(update_fields=["is_verified"])
 
         roles = [ur.role.name for ur in user.user_roles.select_related('role')]
 
@@ -110,7 +120,12 @@ class RegisterView(generics.CreateAPIView):
             },
             "access": None,
             "refresh": None,
-            "message": "Inscription réussie ! Vérifiez votre email pour activer votre compte."
+            "verification_required": verification_required,
+            "message": (
+                "Inscription réussie ! Vérifiez votre email pour activer votre compte."
+                if verification_required
+                else "Inscription réussie ! Votre compte est prêt."
+            ),
         }, status=status.HTTP_201_CREATED)
 
 class LoginView(generics.GenericAPIView):
